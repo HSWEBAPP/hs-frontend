@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { fetchUsers, updateUserStatus, updateUser } from "../../api/auth";
 import Sidebar from "../../Components/Sidebar";
 import Header from "../../Components/Header";
-import DataTable from "../../components/Table";
+import DataTable from "../../Components/DataTable";
 import { useWallet } from "../../contexts/WalletContext";
 import { toast } from "react-hot-toast";
 import { Filter } from "lucide-react";

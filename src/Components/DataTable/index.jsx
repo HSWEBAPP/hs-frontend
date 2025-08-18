@@ -1,12 +1,11 @@
 import { useState } from "react";
-
-export default function DataTable({
+const DataTable =({
   columns,
   data,
   onDelete,
   onUpdate,
   onStatusChange,
-}) {
+}) =>{
   const [selected, setSelected] = useState([]);
   const [sortConfig, setSortConfig] = useState({ key: null, direction: "asc" });
 
@@ -161,3 +160,4 @@ export default function DataTable({
     </div>
   );
 }
+export default DataTable
