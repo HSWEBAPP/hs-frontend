@@ -43,7 +43,7 @@ export default function AdminQRCodePage() {
 
   const fetchQRCodes = async () => {
     try {
-      const res = await axios.get("http://localhost:5000/api/qrcode", {
+      const res = await axios.get("https://hs-backend-2.onrender.com/api/qrcode", {
         headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
       });
       setQrCodes(res.data);
@@ -83,7 +83,7 @@ export default function AdminQRCodePage() {
       formData.append("qrImage", values.qrImage);
 
       try {
-        await axios.post("http://localhost:5000/api/qrcode/create", formData, {
+        await axios.post("https://hs-backend-2.onrender.com/api/qrcode/create", formData, {
           headers: {
             "Content-Type": "multipart/form-data",
             Authorization: `Bearer ${localStorage.getItem("token")}`,
@@ -100,7 +100,7 @@ export default function AdminQRCodePage() {
 
   const handleDelete = async () => {
     try {
-      await axios.delete(`http://localhost:5000/api/qrcode/${deleteId}`, {
+      await axios.delete(`https://hs-backend-2.onrender.com/api/qrcode/${deleteId}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
       });
       toast.success("QR Code deleted successfully");

@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const API = axios.create({
-  baseURL: 'http://localhost:5000/api/', // Replace with deployed URL if needed
+  baseURL: 'https://hs-backend-2.onrender.com/', // Replace with deployed URL if needed
 });
 // Interceptor: attach token to every request
 API.interceptors.request.use((req) => {

@@ -37,7 +37,7 @@ const formik = useFormik({
     try {
       setLoading(true);
       const res = await axios.post(
-        "http://localhost:5000/api/auth/login",
+        "https://hs-backend-2.onrender.com/api/auth/login",
         values
       );
       setLoading(false);

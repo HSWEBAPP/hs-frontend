@@ -41,7 +41,7 @@ export default function RechargePage() {
     onSubmit: async (values, { resetForm }) => {
       try {
         await axios.post(
-          "http://localhost:5000/api/wallet/user/recharge/qr",
+          "https://hs-backend-2.onrender.com/api/wallet/user/recharge/qr",
           {
             amount: selectedQR.amount,
             transactionId: values.transactionId,
@@ -97,7 +97,7 @@ export default function RechargePage() {
           {selectedQR && (
             <div className="flex flex-col items-center w-[50%] mb-4">
               <img
-                src={`http://localhost:5000${selectedQR.imageUrl}`}
+                src={`https://hs-backend-2.onrender.com${selectedQR.imageUrl}`}
                 alt="QR Code"
                 className="w-48 h-48"
               />

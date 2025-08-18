@@ -32,7 +32,7 @@ export default function RechargePage() {
 
   const fetchHistory = async () => {
     try {
-      const res = await axios.get("http://localhost:5000/api/recharge/history", {
+      const res = await axios.get("https://hs-backend-2.onrender.com/api/recharge/history", {
         headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
       });
       setHistory(res.data);
@@ -48,7 +48,7 @@ export default function RechargePage() {
 
     try {
       await axios.post(
-        "http://localhost:5000/api/recharge/request",
+        "https://hs-backend-2.onrender.com/api/recharge/request",
         {
           amount: selectedQR.amount,
           transactionId,
@@ -109,7 +109,7 @@ export default function RechargePage() {
 
               {selectedQR && (
                 <div className="flex flex-col items-center mb-4">
-                  <img src={`http://localhost:5000${selectedQR.imageUrl}`} alt="QR Code" className="w-48 h-48" />
+                  <img src={`https://hs-backend-2.onrender.com${selectedQR.imageUrl}`} alt="QR Code" className="w-48 h-48" />
                   <button
                     className="bg-black text-white px-6 py-2 mt-4"
                     onClick={() => setShowForm(true)}

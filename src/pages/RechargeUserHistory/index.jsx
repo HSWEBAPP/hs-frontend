@@ -15,7 +15,7 @@ export default function RechargeHistoryPage() {
   const fetchHistory = async () => {
     try {
       const { data } = await axios.get(
-        "http://localhost:5000/api/wallet/user/recharge/history",
+        "https://hs-backend-2.onrender.com/api/wallet/user/recharge/history",
         {
           headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
         }
