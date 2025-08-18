@@ -1,6 +1,12 @@
 import { useState } from "react";
 
-export default function DataTable({ columns, data, onDelete, onUpdate, onStatusChange }) {
+export default function DataTable({
+  columns,
+  data,
+  onDelete,
+  onUpdate,
+  onStatusChange,
+}) {
   const [selected, setSelected] = useState([]);
   const [sortConfig, setSortConfig] = useState({ key: null, direction: "asc" });
 
@@ -17,8 +23,7 @@ export default function DataTable({ columns, data, onDelete, onUpdate, onStatusC
   const toggleSort = (key) => {
     setSortConfig((prev) => ({
       key,
-      direction:
-        prev.key === key && prev.direction === "asc" ? "desc" : "asc",
+      direction: prev.key === key && prev.direction === "asc" ? "desc" : "asc",
     }));
   };
 
@@ -43,13 +48,13 @@ export default function DataTable({ columns, data, onDelete, onUpdate, onStatusC
         <table className="w-full min-w-[900px] border-collapse border border-gray-300 text-sm">
           <thead className="bg-gray-100">
             <tr>
-              <th className="p-3 border text-center text-black">
+              {/* <th className="p-3 border text-center text-black">
                 <input
                   type="checkbox"
                   checked={selected.length === data.length && data.length > 0}
                   onChange={toggleSelectAll}
                 />
-              </th>
+              </th> */}
               {columns.map((col) => (
                 <th
                   key={col.key}
@@ -70,53 +75,66 @@ export default function DataTable({ columns, data, onDelete, onUpdate, onStatusC
             {sortedData.map((row, index) => (
               <tr
                 key={row._id}
-                className="hover:bg-gray-50 transition-colors duration-150"
+                className={`transition-colors duration-150 ${
+                  row.role === "admin"
+                    ? "bg-gray-100 cursor-not-allowed"
+                    : "hover:bg-gray-50"
+                }`}
               >
-                <td className="p-3 border text-center text-black">
+                {/* <td className="p-3 border text-center text-black">
                   <input
                     type="checkbox"
                     checked={selected.includes(row._id)}
                     onChange={() => toggleSelect(row._id)}
+                    disabled={row.role === "admin"}
                   />
-                </td>
+                </td> */}
 
                 {/* Render table cells */}
                 {columns.map((col) => (
-                  <td key={col.key} className="p-3 border text-center text-black">
-  {col.key === "sno"
-    ? index + 1
-    : col.key === "status"
-    ? (
-      <button
-        onClick={() => onStatusChange(row._id, row.isActive)}
-        className={`px-3 py-1 rounded text-white ${
-          row.isActive ? 'bg-green-500 hover:bg-green-600' : 'bg-red-500 hover:bg-red-600'
-        }`}
-      >
-        {row.isActive ? 'Active' : 'Deactive'}
-      </button>
-    )
-    : col.render
-    ? col.render(row[col.key], row)
-    : row[col.key]}
-</td>
-
+                  <td
+                    key={col.key}
+                    className="p-3 border text-center text-black"
+                  >
+                    {col.key === "sno" ? (
+                      index + 1
+                    ) : col.key === "status" ? (
+                        row?.role==="admin"?"-":
+                      <button
+                        onClick={() =>
+                          row.role !== "admin" &&
+                          onStatusChange(row._id, row.isActive)
+                        }
+                        disabled={row.role === "admin"}
+                        className={`px-3 py-1 rounded text-white ${
+                          row.isActive
+                            ? "!bg-green-500 !hover:bg-green-600"
+                            : "!bg-red-500 !hover:bg-red-600"
+                        } `}
+                      >
+                        {row.isActive ? "Active" : "Deactive"}
+                      </button>
+                    ) : col.render ? (
+                      col.render(row[col.key], row)
+                    ) : (
+                      row[col.key]
+                    )}
+                  </td>
                 ))}
 
                 {/* Action Buttons */}
                 <td className="p-3 border text-center text-black whitespace-nowrap">
+                    {row?.role==="admin"?"-":
                   <button
                     onClick={() => onUpdate(row)}
-                    className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded mr-2 text-sm"
+                   
+                    className={`px-3 py-1 rounded mr-2 text-sm text-white ${
+                      "bg-blue-500 hover:bg-blue-600"
+                    }`}
                   >
                     Edit
                   </button>
-                  {/* <button
-                    onClick={() => onDelete(row)}
-                    className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm"
-                  >
-                    Delete
-                  </button> */}
+                }
                 </td>
               </tr>
             ))}

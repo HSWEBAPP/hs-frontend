@@ -7,9 +7,10 @@ import ForgotPassword from "./pages/ForgotPassword";
 import PrivateRoute from "./PrivateRoute";
 import { Toaster } from "react-hot-toast";
 import User from "./pages/User"; // if you have one
-import QrCode from "./pages/AddQRCode"
-import Wallet from "./pages/Wallet"
-import AdminWallet from "./pages/AdminWallet"
+import QrCode from "./pages/AddQRCode";
+import Wallet from "./pages/Wallet";
+import AdminWallet from "./pages/AdminWallet";
+import RechargeUserHistory from "./pages/RechargeUserHistory";
 
 function App() {
   return (
@@ -31,36 +32,44 @@ function App() {
               <Dashboard />
             </PrivateRoute>
           }
-        /> <Route
+        />
+        <Route
           path="/wallet"
           element={
-            <PrivateRoute >
-              <Wallet/>
+            <PrivateRoute>
+              <Wallet />
             </PrivateRoute>
           }
         />
-
+        <Route
+          path="/recharge-history"
+          element={
+            <PrivateRoute>
+              <RechargeUserHistory />
+            </PrivateRoute>
+          }
+        />
         <Route
           path="/user"
           element={
             <PrivateRoute requiredRole="admin">
-              <User/>
+              <User />
             </PrivateRoute>
           }
         />
-  <Route
+        <Route
           path="/QR"
           element={
             <PrivateRoute requiredRole="admin">
-              <QrCode/>
+              <QrCode />
             </PrivateRoute>
           }
         />
-         <Route
+        <Route
           path="/admin-wallet"
           element={
             <PrivateRoute requiredRole="admin">
-              <AdminWallet/>
+              <AdminWallet />
             </PrivateRoute>
           }
         />

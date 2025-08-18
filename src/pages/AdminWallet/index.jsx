@@ -1,184 +1,132 @@
-import { useState, useEffect } from "react";
-import axios from "axios";
-import { toast } from "react-hot-toast";
+import { useEffect, useState } from "react";
+import {
+  fetchRechargeRequests,
+  approveRecharge,
+  rejectRechargeRequest,
+} from "../../api/auth";
 import Sidebar from "../../Components/Sidebar";
 import Header from "../../Components/Header";
-import { useWallet } from '../../contexts/WalletContext';
-const AdminWalletPage = () => {
-  const [activeTab, setActiveTab] = useState("recharge"); // default tab
-  const [rechargeHistory, setRechargeHistory] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const { fetchBalance, setBalance } = useWallet();
-  useEffect(() => {
-    if (activeTab === "recharge") fetchRechargeHistory();
-  }, [activeTab]);
 
-  // Fetch pending & processed QR recharges
-  const fetchRechargeHistory = async () => {
+export default function ManageRecharge() {
+  const [requests, setRequests] = useState([]);
+
+  useEffect(() => {
+    loadRequests();
+  }, []);
+
+  const loadRequests = async () => {
     try {
-      setLoading(true);
-      const { data } = await axios.get(
-        "http://localhost:5000/api/admin/wallet/recharges",
-        {
-          headers: { Authorization: `Bearer ${localStorage.getItem("token")}`,  "Cache-Control": "no-cache" },
-        }
-      );
-      setRechargeHistory(data);
-      setLoading(false);
-    } catch (error) {
-      console.error(error);
-      toast.error("Failed to fetch recharge history");
-      setLoading(false);
+      const res = await fetchRechargeRequests();
+      setRequests(res.data);
+    } catch (err) {
+      console.error("Error loading recharge requests", err);
     }
   };
 
-  // Approve a recharge request
-const handleApprove = async (id) => {
-  try {
-    const { data } = await axios.put(
-      `http://localhost:5000/api/admin/wallet/recharges/${id}/approve`,
-      {},
-      { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } }
-    );
+  const handleApprove = async (id) => {
+    try {
+      await approveRecharge(id);
+      loadRequests();
+    } catch (err) {
+      console.error("Error approving recharge", err);
+    }
+  };
 
-    toast.success(data.message);
-      // ✅ Update wallet balance globally
-      setBalance(data.walletBalance);
-
-
-    // Refresh recharge list
-    fetchRechargeHistory();
-  } catch (error) {
-    console.error(error);
-    toast.error(error.response?.data?.message || "Failed to approve recharge");
-  }
-};
-
-
-  // Reject a recharge request
   const handleReject = async (id) => {
     try {
-      await axios.put(
-        `http://localhost:5000/api/admin/wallet/recharges/${id}/reject`,
-        {},
-        {
-          headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
-        }
-      );
-      toast.success("Recharge rejected successfully");
-      fetchRechargeHistory();
-    } catch (error) {
-      console.error(error);
-      toast.error(error.response?.data?.message || "Failed to reject recharge");
+      await rejectRechargeRequest(id);
+      loadRequests();
+    } catch (err) {
+      console.error("Error rejecting recharge", err);
     }
   };
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex">
       <Sidebar />
-
       <div className="flex-1">
-        {/* Top header */}
-        <Header />
-        <div className="p-4">
-          {/* <h1 className="text-2xl font-bold mb-4 text-black">Admin Wallet</h1> */}
-
-          {/* Tabs */}
-          <div className="flex gap-2 mb-4">
-            <button
-              className={`px-4 py-2 rounded ${
-                activeTab === "recharge"
-                  ? "bg-blue-500 text-white"
-                  : "bg-gray-200"
-              }`}
-              onClick={() => setActiveTab("recharge")}
-            >
-              Recharge History
-            </button>
-            <button
-              className={`px-4 py-2 rounded ${
-                activeTab === "transaction"
-                  ? "bg-blue-500 text-white"
-                  : "bg-gray-200"
-              }`}
-              onClick={() => setActiveTab("transaction")}
-            >
-              Transaction History
-            </button>
-            <button className="px-4 py-2 rounded bg-gray-200" disabled>
-              Manual Credit
-            </button>
-          </div>
-
-          {/* Tab Content */}
-          {activeTab === "recharge" && (
-            <>
-              {loading ? (
-                <p>Loading...</p>
-              ) : rechargeHistory.length === 0 ? (
-                <p>No recharge requests found.</p>
+        <Header title="Manage Recharge" />
+        <div className="p-4 overflow-x-auto">
+          <table className="w-full border border-gray-300 text-sm">
+            <thead className="bg-gray-200">
+              <tr>
+                <th className="border px-4 py-2 text-black">S.No</th>
+                <th className="border px-4 py-2 text-black">Email</th>
+                {/* <th className="border px-4 py-2 text-black">Mobile</th> */}
+                <th className="border px-4 py-2 text-black">Recharge ID</th>
+                <th className="border px-4 py-2 text-black">App Used</th>
+                <th className="border px-4 py-2 text-black">Amount</th>
+                <th className="border px-4 py-2 text-black">Date & Time</th>
+                <th className="border px-4 py-2 text-black">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {requests.length > 0 ? (
+                requests.map((row, index) => (
+                  <tr key={row._id}>
+                    <td className="border px-4 py-2 text-black">
+                      {index + 1}
+                    </td>
+                    <td className="border px-4 py-2 text-black">
+                      {row.user?.email || "N/A"}
+                    </td>
+                    {/* <td className="border px-4 py-2 text-black">
+                      {row.user?.mobile || "N/A"}
+                    </td> */}
+                    <td className="border px-4 py-2 text-black">
+                      {row.transactionId}
+                    </td>
+                    <td className="border px-4 py-2 text-black">
+                      {row.appUsed || "N/A"}
+                    </td>
+                    <td className="border px-4 py-2 text-black">₹{row.amount}</td>
+                    <td className="border px-4 py-2 text-black">
+                      {new Date(row.createdAt).toLocaleString()}
+                    </td>
+                    <td className="border px-4 py-2 text-black">
+                      {row.status === "pending" ? (
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleApprove(row._id)}
+                            className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded"
+                          >
+                            Approve
+                          </button>
+                          <button
+                            onClick={() => handleReject(row._id)}
+                            className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded"
+                          >
+                            Reject
+                          </button>
+                        </div>
+                      ) : (
+                        <span
+                          className={`px-3 py-1 rounded text-white ${
+                            row.status === "approved"
+                              ? "bg-green-500"
+                              : row.status === "rejected"
+                              ? "bg-red-500"
+                              : "bg-gray-400"
+                          }`}
+                        >
+                          {row.status.charAt(0).toUpperCase() +
+                            row.status.slice(1)}
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                ))
               ) : (
-                <table className="w-full border">
-                  <thead>
-                    <tr className="bg-gray-100">
-                      <th className="p-2 border text-black">User</th>
-                      <th className="p-2 border text-black">Email</th>
-                      <th className="p-2 border text-black">Amount</th>
-                      <th className="p-2 border text-black">Transaction ID</th>
-                      <th className="p-2 border text-black">App Used</th>
-                      <th className="p-2 border text-black">Status</th>
-                      <th className="p-2 border text-black">Date</th>
-                      <th className="p-2 border text-black">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {rechargeHistory.map((item) => (
-                      <tr key={item._id} className="text-center">
-                        <td className="p-2 border text-black">
-                          {item.user?.name || "N/A"}
-                        </td>
-                        <td className="p-2 border text-black">{item.user?.email}</td>
-                        <td className="p-2 border text-black">₹{item.amount}</td>
-                        <td className="p-2 border text-black">{item.transactionId}</td>
-                        <td className="p-2 border text-black">{item.appUsed}</td>
-                        <td className="p-2 border text-black capitalize">{item.status}</td>
-                        <td className="p-2 border text-black">
-                          {new Date(item.createdAt).toLocaleString()}
-                        </td>
-                        <td className="p-2 border flex gap-2 justify-center text-black">
-                          {item.status === "pending" && (
-                            <>
-                              <button
-                                className="px-2 py-1 bg-green-500 text-white rounded"
-                                onClick={() => handleApprove(item._id)}
-                              >
-                                Approve
-                              </button>
-                              <button
-                                className="px-2 py-1 bg-red-500 text-white rounded"
-                                onClick={() => handleReject(item._id)}
-                              >
-                                Reject
-                              </button>
-                            </>
-                          )}
-                          {item.status !== "pending" && <span>N/A</span>}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                <tr>
+                  <td colSpan="8" className="text-center py-4">
+                    No recharge requests found
+                  </td>
+                </tr>
               )}
-            </>
-          )}
-
-          {activeTab === "transaction" && (
-            <p>Transaction History tab coming soon</p>
-          )}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
   );
-};
-
-export default AdminWalletPage;
+}
