@@ -286,7 +286,7 @@ export default function Register() {
               <button
                 type="button"
                 onClick={() => setStep(1)}
-                className="px-6 py-2 border border-gray-400 rounded hover:bg-gray-100 transition"
+                className="px-6 py-2 border !border-gray-400 rounded !hover:bg-gray-100 transition"
               >
                 ← Back
               </button>
@@ -307,12 +307,12 @@ export default function Register() {
                       if (step1Errors.length === 0) setStep(2);
                     });
                   }}
-                  className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition"
+                  className="px-6 py-2 !bg-blue-600 !text-white rounded !hover:bg-blue-700 transition"
                 >
                   Next →
                 </button>
               ) : (
-                <button type="submit" className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition">
+                <button type="submit" className="px-6 py-2 !bg-blue-600 !text-white rounded !hover:bg-blue-700 transition">
                   Register
                 </button>
               )}

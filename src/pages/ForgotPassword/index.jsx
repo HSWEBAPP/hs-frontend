@@ -75,7 +75,7 @@ export default function ForgotPassword() {
             <button
               onClick={handleSendOtp}
               disabled={loading}
-              className={`w-full bg-blue-600 text-white py-3 rounded-lg mt-4 hover:bg-blue-700 transition ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+              className={`w-full !bg-blue-600 !text-white py-3 rounded-lg mt-4 !hover:bg-blue-700 transition ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
               {loading ? 'Processing...' : 'Send OTP'}
             </button>
@@ -94,7 +94,7 @@ export default function ForgotPassword() {
             <button
               onClick={handleVerifyOtp}
               disabled={loading}
-              className={`w-full bg-blue-600 text-white py-3 rounded-lg mt-4 hover:bg-blue-700 transition ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+              className={`w-full !bg-blue-600 !text-white py-3 rounded-lg mt-4 !hover:bg-blue-700 transition ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
               {loading ? 'Processing...' : 'Verify OTP'}
             </button>
@@ -121,7 +121,7 @@ export default function ForgotPassword() {
             <button
               onClick={handleResetPassword}
               disabled={loading}
-              className={`w-full bg-blue-600 text-white py-3 rounded-lg mt-4 hover:bg-blue-700 transition ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+              className={`w-full !bg-blue-600 !text-white py-3 rounded-lg mt-4 !hover:bg-blue-700 transition ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
               {loading ? 'Processing...' : 'Reset Password'}
             </button>

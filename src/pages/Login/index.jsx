@@ -127,7 +127,7 @@ export default function Login() {
             type="submit"
             disabled={loading}
             className={`w-full py-3 rounded-lg text-white font-semibold transition ${
-              loading ? "bg-gray-400 cursor-not-allowed" : "bg-black hover:bg-gray-900"
+              loading ? "!bg-gray-400 cursor-not-allowed" : "!bg-black !hover:bg-gray-900"
             }`}
           >
             {loading ? "Logging in..." : "Login"}

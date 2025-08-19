@@ -170,7 +170,7 @@ export default function ManageRecharge() {
                 <button
                   onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
                   disabled={currentPage === 1}
-                  className="!px-2 !py-1 !bg-[#232834] rounded disabled:opacity-50"
+                  className="!px-2 !py-1 !bg-[#232834]  rounded disabled:opacity-50"
                 >
                   Prev
                 </button>
@@ -190,7 +190,7 @@ export default function ManageRecharge() {
                     setCurrentPage((prev) => Math.min(prev + 1, totalPages))
                   }
                   disabled={currentPage === totalPages}
-                  className="!px-2 !py-1 !bg-[#232834] rounded disabled:opacity-50"
+                  className="!px-2 !py-1 !bg-[#232834] !text-white rounded disabled:opacity-50"
                 >
                   Next
                 </button>
