@@ -1,96 +1,86 @@
-import axios from 'axios';
+// src/api/index.js
+import axios from "axios";
 
+// ==================== AXIOS INSTANCE ====================
 const API = axios.create({
-  baseURL: 'https://hs-backend-2.onrender.com/', // Replace with deployed URL if needed
+  baseURL: "https://hs-backend-2.onrender.com/api/", // Always include /api
 });
+
 // Interceptor: attach token to every request
 API.interceptors.request.use((req) => {
-  const token = localStorage.getItem("token"); // token stored after login
+  const token = localStorage.getItem("token");
   if (token) {
     req.headers.Authorization = `Bearer ${token}`;
   }
   return req;
 });
+
 export default API;
 
 // ==================== AUTH ====================
 
 // Register new user
-export const register = (userData) => API.post('auth/register', userData);
+export const register = (userData) => API.post("auth/register", userData);
 
 // Login user with email or mobile
-export const login = (loginData) => API.post('auth/login', loginData);
+export const login = (loginData) => API.post("auth/login", loginData);
 
-// Send OTP to email for forgot password
-export const sendOtp = (data, config) => API.post('auth/send-otp', data, config);
+// Send OTP to email
+export const sendOtp = (data) => API.post("auth/send-otp", data);
 
 // Verify OTP
-export const verifyOtp = (data) => API.post('auth/verify-otp', data);
+export const verifyOtp = (data) => API.post("auth/verify-otp", data);
 
-// Send OTP for forgot password
+// Forgot password OTP
 export const sendForgotPasswordOtp = (data) =>
-  API.post('auth/forgot-password/send-otp', data);
+  API.post("auth/forgot-password/send-otp", data);
 
-// Verify OTP for forgot password
 export const verifyForgotPasswordOtp = (data) =>
-  API.post('auth/forgot-password/verify-otp', data);
+  API.post("auth/forgot-password/verify-otp", data);
 
-// Reset password
-export const resetPassword = (data) => API.post('auth/reset-password', data);
+export const resetPassword = (data) => API.post("auth/reset-password", data);
 
 // ==================== ADMIN ====================
 
-// Update user
-export const updateUser = (id, updates) =>
-  API.put(`admin/users/${id}`, updates);
+export const updateUser = (id, updates) => API.put(`admin/users/${id}`, updates);
 
-// Get all users
-export const fetchUsers = () =>
-  API.get('admin/users', {
-    headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
-  });
+export const fetchUsers = () => API.get("admin/users");
 
-// Update user status
 export const updateUserStatus = (id, status) =>
-  API.patch(
-    `admin/users/${id}/toggle`,
-    { status },
-    { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }
-  );
+API.patch(`admin/users/${id}/toggle`, { status });
+
+
 
 // ==================== WALLET ====================
 
 // Deduct ₹10 for a tool usage
-export const deductWallet = (feature) =>
-  API.post(
-    'wallet/deduct',
-    { feature },
-    { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }
-  );
+export const deductWallet = (feature) => API.post("wallet/deduct-tool-usage", { feature });
 
-// Recharge wallet
-export const rechargeWallet = (amount) =>
-  API.patch(
-    'wallet/recharge',
-    { amount },
-    { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }
-  );
-
-// Get current wallet balance
-export const getWalletBalance = () =>
-  API.get('api/wallet/balance', {
-    headers: {
-      Authorization: `Bearer ${localStorage.getItem('token')}`,
-      'Cache-Control': 'no-cache',
-      Pragma: 'no-cache',
-    },
+// Recharge wallet (QR Upload)
+export const rechargeWallet = (formData) =>
+  API.post("wallet/user/recharge/qr", formData, {
+    headers: { "Content-Type": "multipart/form-data" },
   });
 
-// ==================== QR CODES ====================
-export const getQRCodes = () => API.get('qrcode');
+// Get current wallet balance
+export const getWalletBalance = () => API.get("wallet/balance");
 
+// Get wallet history
+export const getWalletHistory = () => API.get("wallet/user/history");
+
+// ==================== QR CODES ====================
+
+export const getQRCodes = () => API.get("qrcode");
+export const createQRCode = (formData) =>
+  API.post("api/qrcode/create", formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+
+export const deleteQRCode = (id) => API.delete(`api/qrcode/${id}`);
 // ==================== RECHARGE ====================
-export const fetchRechargeRequests = () => API.get('admin/wallet/recharges');
+
+export const fetchRechargeRequests = () =>
+  API.get("admin/wallet/recharges");
 
 export const approveRecharge = (id) =>
   API.put(`admin/wallet/recharges/approve/${id}`);
@@ -103,3 +93,4 @@ export const fetchTransactions = () =>
 
 export const manualRecharge = (data) =>
   API.post("admin/wallet/recharges/manual", data);
+
