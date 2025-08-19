@@ -78,7 +78,7 @@ export const rechargeWallet = (amount) =>
 
 // Get current wallet balance
 export const getWalletBalance = () =>
-  API.get('wallet/balance', {
+  API.get('api/wallet/balance', {
     headers: {
       Authorization: `Bearer ${localStorage.getItem('token')}`,
       'Cache-Control': 'no-cache',
