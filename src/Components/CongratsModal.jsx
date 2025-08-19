@@ -23,7 +23,7 @@ console.log(res, 787898);
 
       // ✅ Store token from OTP verification
       localStorage.setItem("token", res.data.token);
-
+  localStorage.setItem("userName", res.data.emailOrMobile);
       // ✅ Fetch updated wallet balance
       await fetchBalance();
 
@@ -75,7 +75,7 @@ console.log(res, 787898);
         <button
           onClick={handleOtpVerify}
           disabled={loading}
-          className="bg-black text-white w-full py-2 rounded mb-2"
+          className="!bg-black text-white w-full py-2 rounded mb-2"
         >
           {loading ? "Verifying..." : "Verify OTP"}
         </button>
@@ -83,7 +83,7 @@ console.log(res, 787898);
         <button
           onClick={handleResendOtp}
           disabled={resending}
-          className="text-blue-500 text-sm w-full"
+          className="!text-blue-500 text-sm w-full"
         >
           {resending ? "Resending..." : "Resend OTP"}
         </button>

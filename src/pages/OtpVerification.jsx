@@ -57,13 +57,13 @@ export default function OtpVerification() {
         <button
           onClick={handleVerify}
           disabled={loading}
-          className="w-full bg-black text-white py-2 rounded mb-2"
+          className="w-full !bg-black text-white py-2 rounded mb-2"
         >
           {loading ? "Verifying..." : "Confirm"}
         </button>
         <button
           onClick={handleResend}
-          className="w-full text-sm text-blue-500 underline"
+          className="w-full text-sm !bg-black text-blue-500 underline"
         >
           Resend OTP
         </button>

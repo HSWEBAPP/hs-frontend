@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { fetchTransactions } from "../../api/transactionApi";
 import Sidebar from "../../Components/Sidebar";
 import Header from "../../Components/Header";
-import DataTable from "../../Components/DataTable";
+import DataTable from "../../Components/Table";
 
 export default function ManageTransactions() {
   const [transactions, setTransactions] = useState([]);
