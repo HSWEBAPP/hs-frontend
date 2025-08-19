@@ -122,7 +122,7 @@ export default function RechargePage() {
                       Click "I sent payment" only after you complete the payment
                     </p>
                     <button
-                      className="bg-black text-white px-6 py-2 rounded-lg hover:bg-gray-800 transition"
+                      className="!bg-black !text-white px-6 py-2 rounded-lg !hover:bg-gray-800 transition"
                       onClick={() => setShowForm(true)}
                     >
                       I sent payment
@@ -189,8 +189,8 @@ export default function RechargePage() {
                     disabled={submitting || !isSubmitEnabled}
                     className={`w-full py-2 rounded-lg transition ${
                       !isSubmitEnabled || submitting
-                        ? "bg-gray-300 text-gray-600 cursor-not-allowed"
-                        : "bg-green-500 text-white hover:bg-green-600"
+                        ? "!bg-gray-300 !text-gray-600 cursor-not-allowed"
+                        : "!bg-green-500 !text-white !hover:bg-green-600"
                     }`}
                   >
                     {submitting ? "Submitting..." : "Yes, I Completed Payment"}
