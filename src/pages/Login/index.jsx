@@ -130,7 +130,7 @@ const formik = useFormik({
           <button
             type="submit"
             disabled={loading}
-            className={`w-full bg-blue-600 text-white py-2 rounded ${
+            className={`w-full !bg-black text-white py-2 rounded ${
               loading ? "opacity-50 cursor-not-allowed" : ""
             }`}
           >
