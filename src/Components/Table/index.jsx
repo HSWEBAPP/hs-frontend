@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import { Edit2, CheckCircle, XCircle } from "lucide-react";
 import Skeleton from "react-loading-skeleton";
 import "react-loading-skeleton/dist/skeleton.css";
-
+import { useNavigate } from "react-router-dom";
 const DataTable = ({ columns, data, onDelete, onUpdate, onStatusChange, loading }) => {
   const [selected, setSelected] = useState([]);
   const [sortConfig, setSortConfig] = useState({ key: null, direction: "asc" });
@@ -17,7 +17,7 @@ const DataTable = ({ columns, data, onDelete, onUpdate, onStatusChange, loading 
     if (valA > valB) return sortConfig.direction === "asc" ? 1 : -1;
     return 0;
   });
-
+ const navigate = useNavigate();
   const toggleSort = (key) => {
     setSortConfig((prev) => ({
       key,
@@ -38,16 +38,18 @@ const DataTable = ({ columns, data, onDelete, onUpdate, onStatusChange, loading 
   };
 
   return (
-    <div className="bg-white shadow-lg rounded-2xl overflow-hidden h-[calc(100vh-150px)]">
-      <div className="overflow-x-auto h-full">
-        <div className="overflow-y-auto h-full">
-          <table className="w-full min-w-[900px] border-collapse">
-            <thead className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white sticky top-0 z-10">
+    <div className="bg-white  ">
+     
+       
+           <div className=" bg-white shadow-lg rounded-lg border border-gray-200">
+
+             <table className="min-w-full divide-y divide-gray-200 text-sm">
+              <thead className="bg-gray-50 sticky top-0">
               <tr>
                 {columns.map((col) => (
                   <th
                     key={col.key}
-                    className="px-3 py-3 text-sm font-semibold tracking-wide text-center cursor-pointer select-none"
+                    className="px-3 text-gray-600 py-3 text-sm font-semibold tracking-wide text-center cursor-pointer select-none"
                     onClick={() => toggleSort(col.key)}
                   >
                     {col.label}
@@ -61,7 +63,7 @@ const DataTable = ({ columns, data, onDelete, onUpdate, onStatusChange, loading 
               </tr>
             </thead>
 
-            <tbody>
+           <tbody className="divide-y divide-gray-200">
               {loading
                 ? Array.from({ length: 6 }).map((_, idx) => (
                     <tr key={idx} className={idx % 2 === 0 ? "bg-gray-50" : "bg-white"}>
@@ -70,7 +72,7 @@ const DataTable = ({ columns, data, onDelete, onUpdate, onStatusChange, loading 
                           <Skeleton height={20} />
                         </td>
                       ))}
-                      <td className="!py-3 text-center">
+                      <td className="!py-2 text-center">
                         <Skeleton height={20} width={60} />
                       </td>
                     </tr>
@@ -82,14 +84,12 @@ const DataTable = ({ columns, data, onDelete, onUpdate, onStatusChange, loading 
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ duration: 0.2, delay: index * 0.02 }}
-                      className={`transition-colors duration-200 ${
-                        index % 2 === 0 ? "bg-gray-50" : "bg-white"
-                      } hover:bg-blue-50`}
+                      className={`transition-colors duration-200  hover:bg-blue-50`}
                     >
                       {columns.map((col) => (
                         <td
                           key={col.key}
-                          className="!py-3 text-sm text-center text-gray-800 whitespace-nowrap"
+                          className="!py-2 text-sm text-center text-gray-800 whitespace-nowrap"
                         >
                           {col.key === "sno"
                             ? index + 1
@@ -99,7 +99,7 @@ const DataTable = ({ columns, data, onDelete, onUpdate, onStatusChange, loading 
                               : (
                                 <button
                                   onClick={() =>
-                                    onStatusChange && onStatusChange(row._id, row.isActive)
+                                    onStatusChange && onStatusChange(row._id, row.isActive, row.name)
                                   }
                                   className={`flex items-center gap-1 justify-center !px-2 !py-1 rounded-lg text-xs text-white ${
                                     row.isActive
@@ -129,7 +129,8 @@ const DataTable = ({ columns, data, onDelete, onUpdate, onStatusChange, loading 
                           "-"
                         ) : (
                           <button
-                            onClick={() => onUpdate && onUpdate(row)}
+                           onClick={() => navigate(`/user/${row._id}`)}
+                            // onClick={() => onUpdate && onUpdate(row)}
                             className="flex items-center gap-1 !px-2 !py-1 rounded-lg !bg-indigo-500 text-white text-xs hover:bg-indigo-600 transition"
                           >
                             <Edit2 size={14} /> Edit
@@ -150,8 +151,9 @@ const DataTable = ({ columns, data, onDelete, onUpdate, onStatusChange, loading 
                 )}
             </tbody>
           </table>
-        </div>
-      </div>
+           </div>
+        
+     
 
       {selected.length > 0 && (
         <div className="p-3 bg-gray-50 border-t flex justify-between items-center">

@@ -11,6 +11,7 @@ import QrCode from "./pages/AddQRCode";
 import Wallet from "./pages/Wallet";
 import AdminWallet from "./pages/AdminWallet";
 import RechargeUserHistory from "./pages/RechargeUserHistory";
+import UserEdit from "./pages/User/UserEdit"
 
 function App() {
   return (
@@ -54,6 +55,14 @@ function App() {
           element={
             <PrivateRoute requiredRole="admin">
               <User />
+            </PrivateRoute>
+          }
+        />
+         <Route
+          path="/user/:id"
+          element={
+            <PrivateRoute requiredRole="admin">
+              <UserEdit />
             </PrivateRoute>
           }
         />

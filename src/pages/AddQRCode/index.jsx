@@ -181,19 +181,19 @@ export default function AdminQRCodePage() {
             </form>
 
             {/* QR Codes Table */}
-            <div>
+            <div className="bg-white p-6 rounded-lg shadow space-y-4">
               <h3 className="text-lg font-semibold text-black mb-3">All QR Codes</h3>
-              <div className="bg-white rounded-2xl shadow overflow-x-auto">
-                <table className="min-w-full border-collapse">
-                  <thead className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white sticky top-0 z-10">
+         <div className="overflow-x-auto bg-white shadow-lg rounded-lg border border-gray-200">
+            <table className="min-w-full divide-y divide-gray-200 text-sm">
+                  <thead className="bg-gray-50 sticky top-0">
                     <tr>
-                      <th className="px-3 py-3 text-left text-sm font-semibold">Amount</th>
-                      <th className="px-3 py-3 text-left text-sm font-semibold">GST</th>
-                      <th className="px-3 py-3 text-left text-sm font-semibold">Total</th>
-                      <th className="px-3 py-3 text-center text-sm font-semibold">Actions</th>
+                      <th className="px-3 py-3 text-left text-sm text-gray-600 font-semibold">Amount</th>
+                      <th className="px-3 py-3 text-left text-sm text-gray-600 font-semibold">GST</th>
+                      <th className="px-3 py-3 text-left text-sm text-gray-600 font-semibold">Total</th>
+                      <th className="px-3 py-3 text-center text-sm text-gray-600 font-semibold">Actions</th>
                     </tr>
                   </thead>
-                  <tbody>
+                <tbody className="divide-y divide-gray-200">
                     {loading
                       ? Array.from({ length: 5 }).map((_, idx) => (
                           <tr key={idx} className={idx % 2 === 0 ? "bg-gray-50" : "bg-white"}>
@@ -205,9 +205,9 @@ export default function AdminQRCodePage() {
                       : qrCodes.length > 0
                       ? qrCodes.map((qr, idx) => (
                           <tr key={qr._id} className={`hover:bg-blue-50 ${idx % 2 === 0 ? "bg-gray-50" : "bg-white"}`}>
-                            <td className="px-3 py-3 text-sm text-black">₹{qr.amount}</td>
-                            <td className="px-3 py-3 text-sm text-black">{qr.gst}%</td>
-                            <td className="px-3 py-3 text-sm text-black">₹{qr.totalAmount}</td>
+                            <td className="px-3 py-3 text-sm text-gray-600">₹{qr.amount}</td>
+                            <td className="px-3 py-3 text-sm text-gray-600">{qr.gst}%</td>
+                            <td className="px-3 py-3 text-sm text-gray-600">₹{qr.totalAmount}</td>
                             <td className="px-0 py-2 text-center">
                               <button
                                 onClick={() => {

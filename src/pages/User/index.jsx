@@ -55,7 +55,9 @@ export default function ManageUsers() {
     if (filters.from) {
       const fromDate = new Date(filters.from);
       fromDate.setHours(0, 0, 0, 0);
-      filtered = filtered.filter((user) => new Date(user.createdAt) >= fromDate);
+      filtered = filtered.filter(
+        (user) => new Date(user.createdAt) >= fromDate
+      );
     }
 
     if (filters.to) {
@@ -64,7 +66,8 @@ export default function ManageUsers() {
       filtered = filtered.filter((user) => new Date(user.createdAt) <= toDate);
     }
 
-    if (filters.mobile) filtered = filtered.filter((u) => u.mobile.includes(filters.mobile));
+    if (filters.mobile)
+      filtered = filtered.filter((u) => u.mobile.includes(filters.mobile));
     if (filters.email)
       filtered = filtered.filter((u) =>
         u.email.toLowerCase().includes(filters.email.toLowerCase())
@@ -115,10 +118,20 @@ export default function ManageUsers() {
     }
   };
 
-  const handleStatusChange = (id, newStatus) => {
+  const handleStatusChange = (id, newStatus, name) => {
     updateUserStatus(id, newStatus)
-      .then(() => loadUsers())
-      .catch((err) => console.error(err));
+      .then(() => {
+        loadUsers();
+        toast.success(
+          newStatus === true
+            ? `${name.charAt(0).toUpperCase() + name.slice(1)} is deactivated`
+            : `${name.charAt(0).toUpperCase() + name.slice(1)} is activated`
+        );
+      })
+      .catch((err) => {
+        console.error(err);
+        toast.error("Failed to update user status");
+      });
   };
 
   const columns = [
@@ -156,12 +169,12 @@ export default function ManageUsers() {
 
         {/* Top bar with filter icon */}
         <div className="flex justify-between items-center px-4 py-2">
-          <h3 className="text-xl font-bold mb-4 text-black">All Users</h3>
+          <h3 className="text-xl font-bold mb-0 text-black">All Users</h3>
           <button
             onClick={() => setIsFilterOpen(true)}
-            className="relative flex items-center gap-1 px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+            className="relative flex !text-sm items-center gap-1 !px-3 !py-2 !bg-[#1e88e5] text-white rounded hover:bg-blue-700"
           >
-            <Filter size={18} />
+            <Filter size={16} />
             Filter
             {appliedFilterCount > 0 && (
               <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs w-5 h-5 flex items-center justify-center rounded-full">
@@ -173,8 +186,8 @@ export default function ManageUsers() {
 
         {/* Data Table */}
         <div className="px-4">
-          <div className="max-w-full overflow-x-auto">
-            <div className="max-h-[400px] overflow-y-auto">
+          <div className="">
+            <div className="max-h-[400px] ">
               <DataTable
                 columns={columns}
                 data={currentRows} // only current page rows
@@ -216,9 +229,7 @@ export default function ManageUsers() {
                   ))}
                   <button
                     onClick={() =>
-                      setCurrentPage((prev) =>
-                        Math.min(prev + 1, totalPages)
-                      )
+                      setCurrentPage((prev) => Math.min(prev + 1, totalPages))
                     }
                     disabled={currentPage === totalPages}
                     className="px-2 py-1 bg-gray-800 text-white rounded disabled:opacity-50"

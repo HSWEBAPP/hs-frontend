@@ -47,16 +47,16 @@ export default function RechargeHistoryPage() {
       <div className="flex-1">
         <Header title="Recharge History" />
         <div className="p-6">
-          <div className="overflow-x-auto shadow-lg rounded-2xl border border-gray-200 bg-white">
-            <table className="w-full text-sm text-left border-collapse">
-              <thead className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-sm uppercase sticky top-0 z-10">
+  <div className="overflow-x-auto bg-white shadow-lg rounded-lg border border-gray-200">
+            <table className="min-w-full divide-y divide-gray-200 text-sm">
+                  <thead className="bg-gray-50 sticky top-0">
                 <tr>
-                  <th className="px-3 py-3">S.No</th>
-                  <th className="px-3 py-3">Recharge ID</th>
-                  <th className="px-3 py-3">App Used</th>
-                  <th className="px-3 py-3">Amount</th>
-                  <th className="px-3 py-3">Date & Time</th>
-                  <th className="px-3 py-3 text-center">Status</th>
+                  <th className="px-3 py-3 text-gray-600 text-center">S.No</th>
+                  <th className="px-3 py-3 text-gray-600 text-center">Recharge ID</th>
+                  <th className="px-3 py-3 text-gray-600 text-center">App Used</th>
+                  <th className="px-3 py-3 text-gray-600 text-center">Amount</th>
+                  <th className="px-3 py-3 text-gray-600 text-center">Date & Time</th>
+                  <th className="px-3 py-3 text-gray-600 text-center">Status</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
@@ -73,13 +73,13 @@ export default function RechargeHistoryPage() {
                   : currentRows.length > 0
                   ? currentRows.map((h, index) => (
                       <tr key={h._id} className="hover:bg-gray-50 transition duration-200">
-                        <td className="px-3 py-3 text-center font-medium text-gray-700">
+                        <td className="px-3 py-3 text-center font-medium text-gray-600">
                           {indexOfFirstRow + index + 1}
                         </td>
-                        <td className="px-3 py-3 font-mono text-gray-600">{h._id}</td>
-                        <td className="px-3 py-3 text-gray-700">{h.appUsed || "N/A"}</td>
-                        <td className="px-3 py-3 font-semibold text-green-600">₹{h.amount}</td>
-                        <td className="px-3 py-3 text-gray-600">
+                        <td className="px-3 py-3 font-mono text-center text-gray-600">{h._id}</td>
+                        <td className="px-3 py-3 text-gray-600 text-center">{h.appUsed || "N/A"}</td>
+                        <td className="px-3 py-3 font-semibold text-center !text-green-600">₹{h.amount}</td>
+                        <td className="px-3 py-3 text-gray-600 text-center">
                           {new Date(h.createdAt).toLocaleString()}
                         </td>
                         <td className="px-3 py-3 text-center">

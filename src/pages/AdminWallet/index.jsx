@@ -67,17 +67,17 @@ export default function ManageRecharge() {
       <div className="flex-1">
         <Header title="Manage Recharge" />
         <div className="p-6">
-          <div className="overflow-x-auto shadow-lg rounded-2xl border border-gray-200 bg-white">
-            <table className="w-full text-sm text-left border-collapse">
-              <thead className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-sm uppercase sticky top-0 z-10">
+         <div className="overflow-x-auto bg-white shadow-lg rounded-lg border border-gray-200">
+            <table className="min-w-full divide-y divide-gray-200 text-sm">
+                  <thead className="bg-gray-50 sticky top-0">
                 <tr>
-                  <th className="px-3 py-3">S.No</th>
-                  <th className="px-3 py-3">Email</th>
-                  <th className="px-3 py-3">Recharge ID</th>
-                  <th className="px-3 py-3">App Used</th>
-                  <th className="px-3 py-3">Amount</th>
-                  <th className="px-3 py-3">Date & Time</th>
-                  <th className="px-3 py-3 text-center">Actions</th>
+                  <th className="px-3 py-3 text-start text-gray-600">S.No</th>
+                  <th className="px-3 py-3 text-start text-gray-600">Email</th>
+                  <th className="px-3 py-3 text-start text-gray-600">Recharge ID</th>
+                  <th className="px-3 py-3 text-start text-gray-600">App Used</th>
+                  <th className="px-3 py-3 text-start text-gray-600">Amount</th>
+                  <th className="px-3 py-3 text-center text-gray-600">Date & Time</th>
+                  <th className="px-3 py-3  text-gray-600 text-center">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
@@ -97,16 +97,16 @@ export default function ManageRecharge() {
                         key={row._id}
                         className="hover:bg-gray-50 transition duration-200"
                       >
-                        <td className="px-3 py-3 font-medium text-gray-700">
+                        <td className="px-3 py-3 font-medium text-gray-600">
                           {indexOfFirstRow + index + 1}
                         </td>
-                        <td className="px-3 py-3 text-gray-700">
+                        <td className="px-3 py-3 text-gray-600">
                           {row.user?.email || "N/A"}
                         </td>
                         <td className="px-3 py-3 font-mono text-gray-600">
                           {row.transactionId}
                         </td>
-                        <td className="px-3 py-3">{row.appUsed || "N/A"}</td>
+                        <td className="px-3 py-3 text-gray-600">{row.appUsed || "N/A"}</td>
                         <td className="px-3 py-3 font-semibold text-green-600">
                           ₹{row.amount}
                         </td>
