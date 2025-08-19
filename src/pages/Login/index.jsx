@@ -38,7 +38,8 @@ const formik = useFormik({
       setLoading(true);
       const res = await axios.post(
         "https://hs-backend-2.onrender.com/api/auth/login",
-        values
+        values,
+         { withCredentials: true }
       );
       setLoading(false);
       toast.success("Login is success");
