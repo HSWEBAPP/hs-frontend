@@ -12,6 +12,7 @@ import Wallet from "./pages/Wallet";
 import AdminWallet from "./pages/AdminWallet";
 import RechargeUserHistory from "./pages/RechargeUserHistory";
 import UserEdit from "./pages/User/UserEdit"
+import Editor from "./pages/Editor"
 
 function App() {
   return (
@@ -47,6 +48,14 @@ function App() {
           element={
             <PrivateRoute>
               <RechargeUserHistory />
+            </PrivateRoute>
+          }
+        />
+           <Route
+          path="/editor"
+          element={
+            <PrivateRoute>
+              <Editor />
             </PrivateRoute>
           }
         />
