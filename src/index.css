@@ -31,9 +31,10 @@ body {
   display: flex;
   place-items: center;
   min-width: 320px;
-  min-height: 100vh;
+  min-height: 100% !important;
   font-family: 'Lato', sans-serif !important;
   background-color: white;
+  /* overflow-y: hidden; */
 }
 
 h1 {

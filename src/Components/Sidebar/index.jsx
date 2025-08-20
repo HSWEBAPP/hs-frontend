@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import Logo from "../../assets/images/Logo.png";
 import { jwtDecode } from "jwt-decode";
@@ -8,12 +8,13 @@ import {
   History,
   Users,
   QrCode,
-  BookOpen,
-  Settings,
-  FileText,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 
 export default function Sidebar() {
+  const [isCollapsed, setIsCollapsed] = useState(false);
+
   const token = localStorage.getItem("token");
   let role = null;
   if (token) {
@@ -23,108 +24,113 @@ export default function Sidebar() {
 
   const location = useLocation();
 
-  // helper to check active link
-  const isActive = (path) =>
-    location.pathname === path ? "underline font-semibold" : "";
+  const isActive = (path) => location.pathname === path;
+
+  const menuItems = [
+    {
+      role: "all",
+      path: "/dashboard",
+      name: "Dashboard",
+      icon: <LayoutDashboard size={20} />,
+    },
+    {
+      role: "user",
+      path: "/wallet",
+      name: "Wallet",
+      icon: <Wallet size={20} />,
+    },
+    {
+      role: "admin",
+      path: "/admin-wallet",
+      name: "Manage Recharge",
+      icon: <Wallet size={20} />,
+    },
+    {
+      role: "user",
+      path: "/recharge-history",
+      name: "Recharge History",
+      icon: <History size={20} />,
+    },
+    {
+      role: "admin",
+      path: "/user",
+      name: "Manage Users",
+      icon: <Users size={20} />,
+    },
+    {
+      role: "admin",
+      path: "/QR",
+      name: "Manage QR Codes",
+      icon: <QrCode size={20} />,
+    },
+  ];
 
   return (
-    <div className="w-60 bg-[#232834] h-screen p-4 flex flex-col">
-      {/* Logo */}
-      <div className="flex items-center justify-center mb-8">
-        <img src={Logo} alt="Logo" className="h-12" />
+    <div
+      className={`h-screen bg-[#232834] text-white flex flex-col transition-all duration-300 ${
+        isCollapsed ? "w-16" : "w-60"
+      } shadow-xl`}
+    >
+      {/* Logo + Toggle */}
+      <div
+        className={`flex items-center ${
+          isCollapsed ? "justify-center" : "justify-between"
+        }  p-2 border-b !border-gray-700`}
+      >
+        {!isCollapsed && (
+          <img src={Logo} alt="Logo" className="h-10 transition-opacity" />
+        )}
+        <button
+          onClick={() => setIsCollapsed(!isCollapsed)}
+          className="!text-gray-400 hover:text-white !p-3"
+        >
+          {isCollapsed ? (
+            <ChevronRight size={20} color="white" />
+          ) : (
+            <ChevronLeft size={20} color="white" />
+          )}
+        </button>
       </div>
 
       {/* Menu */}
-      <ul className="space-y-4 text-sm flex-1 text-white">
-        <li>
-          <Link to="/dashboard" className="flex items-center gap-2 !text-white">
-            <LayoutDashboard size={18} />
-            <span className={`${isActive("/dashboard")} hover:underline`}>
-              Dashboard
-            </span>
-          </Link>
-        </li>
+      <ul className="flex-1 mt-3 space-y-2">
+        {menuItems.map((item, index) => {
+          if (item.role !== "all" && item.role !== role) return null;
 
-        {role === "admin" ? (
-          <li>
-            <Link to="/admin-wallet" className="flex items-center !text-white gap-2">
-              <Wallet size={18} />
-              <span className={`${isActive("/admin-wallet")} hover:underline`}>
-                Manage Recharge
-              </span>
-            </Link>
-          </li>
-        ) : (
-          <li>
-            <Link to="/wallet" className="flex items-center !text-white gap-2">
-              <Wallet size={18} />
-              <span className={`${isActive("/wallet")} hover:underline`}>
-                Wallet
-              </span>
-            </Link>
-          </li>
-        )}
-
-        {role !== "admin" && (
-          <li>
-            <Link to="/recharge-history" className="flex items-center !text-white gap-2">
-              <History size={18} />
-              <span className={`${isActive("/recharge-history")} hover:underline`}>
-                Recharge History
-              </span>
-            </Link>
-          </li>
-        )}
-
-        {role === "admin" && (
-          <>
-            <li>
-              <Link to="/user" className="flex items-center !text-white gap-2">
-                <Users size={18} />
-                <span className={`${isActive("/user")} hover:underline`}>
-                  Manage Users
-                </span>
+          return (
+            <li key={index} className="mb-0">
+              <Link
+                to={item.path}
+                className={`flex items-center !gap-3 ${
+                  isCollapsed ? "justify-center" : ""
+                }  !px-4 !py-2 !rounded-md transition-colors duration-200 group 
+                ${
+                  isActive(item.path)
+                    ? "!bg-gray-700 !text-blue-400 font-semibold"
+                    : "!text-gray-300 hover:bg-gray-700 hover:text-white"
+                }`}
+              >
+                <div className="relative flex items-center">
+                  {item.icon}
+                  {isCollapsed && (
+                    <span className="absolute  left-10 z-20 bg-gray-800 text-white text-xs px-2 py-3  rounded-r-sm opacity-0 group-hover:opacity-100 whitespace-nowrap transition-opacity">
+                      {item.name}
+                    </span>
+                  )}
+                </div>
+                {!isCollapsed && <span>{item.name}</span>}
               </Link>
             </li>
-            <li>
-              <Link to="/QR" className="flex items-center !text-white gap-2">
-                <QrCode size={18} />
-                <span className={`${isActive("/QR")} hover:underline`}>
-                  Manage QR Codes
-                </span>
-              </Link>
-            </li>
-          </>
-        )}
+          );
+        })}
       </ul>
 
-      {/* <hr className="border-gray-600 my-4" /> */}
-
-      {/* Settings */}
-      {/* <ul className="space-y-4 text-sm text-white">
-        <li>
-          <Link to="/service-catalog" className="flex !text-white items-center gap-2">
-            <BookOpen size={18} />
-            <span className={`${isActive("/service-catalog")} hover:underline`}>
-              Service Catalog
-            </span>
-          </Link>
-        </li>
-        <li>
-          <Link to="/fields" className="flex !text-white items-center gap-2">
-            <FileText size={18} />
-            <span className={`${isActive("/fields")} hover:underline`}>Fields</span>
-          </Link>
-        </li>
-        <li>
-          <Link to="/payment-settings" className="flex !text-white items-center gap-2">
-            <Settings size={18} />
-            <span className={`${isActive("/payment-settings")} hover:underline`}>
-              Payment Settings
-            </span>
-          </Link>
-        </li>
-      </ul> */}
+      {/* Footer */}
+      {!isCollapsed && (
+        <div className="p-4 text-xs text-gray-400 border-t border-gray-700">
+          © 2025 HS Admin
+        </div>
+      )}
     </div>
   );
 }

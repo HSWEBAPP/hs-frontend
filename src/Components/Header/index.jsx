@@ -40,7 +40,8 @@ const WalletHeader = ({ user }) => {
     "#" + ((Math.random() * 0xffffff) << 0).toString(16).padStart(6, "0");
 
   return (
-    <div className="bg-gray-100 p-2 flex flex-col md:flex-row md:items-center md:justify-between">
+ <div className="bg-gray-100 p-2 flex flex-col md:flex-row md:items-center md:justify-between shadow-md shadow-t-none shadow-l-none shadow-r-none">
+
       {/* Breadcrumbs */}
       <div className="text-sm text-gray-600 mb-2 md:mb-0">
         <span
@@ -122,27 +123,28 @@ const WalletHeader = ({ user }) => {
 
       {/* Logout confirmation modal */}
       {logoutConfirm && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-50">
-          <div className="bg-white rounded p-6 shadow-lg w-80">
-            <p className="mb-4 text-gray-700 font-medium">
-              Are you sure you want to logout?
-            </p>
-            <div className="flex justify-end space-x-4">
-              <button
-                className="px-4 py-2 !bg-gray-200 rounded text-black hover:bg-gray-300"
-                onClick={() => setLogoutConfirm(false)}
-              >
-                Cancel
-              </button>
-              <button
-                className="px-4 py-2 !bg-red-500 text-white rounded hover:bg-red-600"
-                onClick={handleLogout}
-              >
-                Logout
-              </button>
-            </div>
-          </div>
-        </div>
+      <div className="fixed inset-0 flex items-center justify-center bg-black/30 backdrop-blur-sm z-50">
+  <div className="bg-white rounded-2xl p-6 shadow-2xl w-80 transform transition-all scale-100">
+    <p className="mb-6 text-gray-800 font-semibold text-lg text-center">
+      Are you sure you want to logout?
+    </p>
+    <div className="flex justify-center space-x-4">
+      <button
+        className="px-5 py-2 rounded-xl !bg-gray-100 !text-gray-700 font-medium !border !border-gray-500 hover:bg-gray-200 transition"
+        onClick={() => setLogoutConfirm(false)}
+      >
+        Cancel
+      </button>
+      <button
+        className="px-5 py-2 rounded-xl !bg-red-500 !text-white font-medium hover:bg-red-600 transition"
+        onClick={handleLogout}
+      >
+        Logout
+      </button>
+    </div>
+  </div>
+</div>
+
       )}
     </div>
   );

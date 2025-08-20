@@ -64,9 +64,9 @@ export default function ManageRecharge() {
   return (
     <div className="flex bg-gray-50 min-h-screen">
       <Sidebar />
-      <div className="flex-1">
+   <div className="flex-1 flex flex-col h-screen overflow-hidden">
         <Header title="Manage Recharge" />
-        <div className="p-6">
+          <div className="flex-1 overflow-y-auto p-6">
          <div className="overflow-x-auto bg-white shadow-lg rounded-lg border border-gray-200">
             <table className="min-w-full divide-y divide-gray-200 text-sm">
                   <thead className="bg-gray-50 sticky top-0">
