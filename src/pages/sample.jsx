@@ -3,6 +3,7 @@ import { useWallet } from "../contexts/WalletContext";
 import { deductWallet } from "../api/auth";
 import { toast } from "react-hot-toast";
 
+
 export default function ToolButton({ feature = "Unknown Tool", onUseTool }) {
   const { balance, setBalance, fetchBalance } = useWallet();
 
@@ -33,7 +34,7 @@ export default function ToolButton({ feature = "Unknown Tool", onUseTool }) {
       onClick={handleClick}
       className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow"
     >
-      Use {feature}
+       {feature}
     </button>
   );
 }
