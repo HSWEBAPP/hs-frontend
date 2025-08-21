@@ -14,21 +14,25 @@ export const WalletProvider = ({ children }) => {
         return;
       }
 
-      const res = await getWalletBalance(); // fetch from API
-      console.log(res, 87878);
-      
+      const res = await getWalletBalance();
       setBalance(res.data.walletBalance);
     } catch (err) {
       console.error('Failed to fetch balance', err);
     }
   };
 
+  // Auto-refresh on mount
   useEffect(() => {
     fetchBalance();
   }, []);
 
+  // ✅ helper to update balance after a transaction
+  const updateBalance = (newBalance) => {
+    setBalance(newBalance);
+  };
+
   return (
-    <WalletContext.Provider value={{ balance, setBalance, fetchBalance }}>
+    <WalletContext.Provider value={{ balance, setBalance, fetchBalance, updateBalance }}>
       {children}
     </WalletContext.Provider>
   );

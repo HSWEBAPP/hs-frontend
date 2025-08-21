@@ -1,44 +1,177 @@
-import React, { useEffect, useState } from "react";
-import { fetchTransactions } from "../../api/auth";
+// pages/admin/TransactionsPage.jsx
+import { useEffect, useState } from "react";
+import Sidebar from "../../Components/Sidebar";
+import Header from "../../Components/Header";
+import { fetchUserTransactions, fetchAdminTransactions } from "../../api/auth";
+import Skeleton from "react-loading-skeleton";
+import "react-loading-skeleton/dist/skeleton.css";
+import toast from "react-hot-toast";
+import { jwtDecode } from "jwt-decode";
 
-const Transactions = () => {
+export default function TransactionsPage() {
   const [transactions, setTransactions] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+
+  // 👉 detect role from token
+  const token = localStorage.getItem("token");
+  let role = null;
+  if (token) {
+    try {
+      role = jwtDecode(token).role;
+    } catch (e) {
+      console.error("Invalid token", e);
+    }
+  }
 
   useEffect(() => {
-    const loadTransactions = async () => {
-      const res = await fetchTransactions();
-      setTransactions(res.data);
-    };
     loadTransactions();
   }, []);
 
+  const loadTransactions = async () => {
+    try {
+      setLoading(true);
+
+      let data;
+      if (role === "admin") {
+        ({ data } = await fetchAdminTransactions());
+      } else {
+        ({ data } = await fetchUserTransactions());
+      }
+
+      setTransactions(data || []);
+    } catch (error) {
+      console.error(error.response?.data || error.message);
+      toast.error("Failed to fetch transactions");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Pagination
+  const indexOfLastRow = currentPage * rowsPerPage;
+  const indexOfFirstRow = indexOfLastRow - rowsPerPage;
+  const currentRows = transactions.slice(indexOfFirstRow, indexOfLastRow);
+  const totalPages = Math.ceil(transactions.length / rowsPerPage);
+
   return (
-    <div>
-      <h2>Transaction History</h2>
-      <table border="1" cellPadding="10">
-        <thead>
-          <tr>
-            <th>User</th>
-            <th>Transaction ID</th>
-            <th>Amount</th>
-            <th>Type</th>
-            <th>Status</th>
-          </tr>
-        </thead>
-        <tbody>
-          {transactions.map((t) => (
-            <tr key={t._id}>
-              <td>{t.user.name}</td>
-              <td>{t.transactionId}</td>
-              <td>{t.amount}</td>
-              <td>{t.type}</td>
-              <td>{t.status}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div className="flex min-h-screen bg-gray-50">
+      <Sidebar />
+      <div className="flex-1">
+        <Header title="Transaction History" />
+        <div className="p-6">
+          <div className="overflow-x-auto bg-white shadow-lg rounded-lg border border-gray-200">
+            <table className="min-w-full divide-y divide-gray-200 text-sm">
+              <thead className="bg-gray-50 sticky top-0">
+                <tr>
+                  <th className="px-3 py-3 text-gray-600 text-center">S.No</th>
+                  {role === "admin" && (
+                    <>
+                    <th className="px-3 py-3 text-gray-600 text-center">User</th>
+                       <th className="px-3 py-3 text-gray-600 text-center">Email</th>
+                    </>
+                  )}
+                  <th className="px-3 py-3 text-gray-600 text-center">Description</th>
+                  <th className="px-3 py-3 text-gray-600 text-center">Amount</th>
+                  <th className="px-3 py-3 text-gray-600 text-center">Type</th>
+                  <th className="px-3 py-3 text-gray-600 text-center">Date & Time</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {loading
+                  ? Array.from({ length: rowsPerPage }).map((_, idx) => (
+                      <tr key={idx} className={idx % 2 === 0 ? "bg-gray-50" : "bg-white"}>
+                        {Array.from({ length: role === "admin" ? 6 : 5 }).map((_, i) => (
+                          <td key={i} className="px-3 py-3">
+                            <Skeleton height={20} />
+                          </td>
+                        ))}
+                      </tr>
+                    ))
+                  : currentRows.length > 0
+                  ? currentRows.map((t, index) => (
+                      <tr key={t._id} className="hover:bg-gray-50 transition duration-200">
+                        <td className="px-3 py-3 text-center font-medium text-gray-600">
+                          {indexOfFirstRow + index + 1}
+                        </td>
+                        {role === "admin" && (
+                          <>
+                          <td className="px-3 py-3 text-gray-600 text-center">
+                            {t.user?.name || "N/A"}
+                          </td>
+                          <td className="px-3 py-3 text-gray-600 text-center">
+                            {t.user?.email || "N/A"}
+                          </td>
+                          </>
+                        )}
+                        <td className="px-3 py-3 font-mono text-center text-gray-600">
+                          {t.description || "-"}
+                        </td>
+                        <td className="px-3 py-3 font-semibold text-center !text-green-600">
+                          ₹{t.amount}
+                        </td>
+                        <td className="px-3 py-3 text-gray-600 text-center">{t.type}</td>
+                        <td className="px-3 py-3 text-gray-600 text-center">
+                          {new Date(t.createdAt).toLocaleString()}
+                        </td>
+                      </tr>
+                    ))
+                  : (
+                      <tr>
+                        <td
+                          colSpan={role === "admin" ? 6 : 5}
+                          className="text-center py-6 text-gray-500 italic"
+                        >
+                          No transactions found 🚫
+                        </td>
+                      </tr>
+                    )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Pagination Controls */}
+          {!loading && transactions.length > rowsPerPage && (
+            <div className="flex justify-between items-center mt-4 !px-1">
+              <div>
+                Showing {indexOfFirstRow + 1} to{" "}
+                {Math.min(indexOfLastRow, transactions.length)} of{" "}
+                {transactions.length} entries
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                  disabled={currentPage === 1}
+                  className="!px-2 !py-1 !bg-[#232834] rounded disabled:opacity-50"
+                >
+                  Prev
+                </button>
+                {Array.from({ length: totalPages }, (_, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setCurrentPage(i + 1)}
+                    className={`!px-2 !py-1 rounded ${
+                      currentPage === i + 1
+                        ? "!bg-blue-600 !text-white"
+                        : "!bg-[#232834]"
+                    }`}
+                  >
+                    {i + 1}
+                  </button>
+                ))}
+                <button
+                  onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                  disabled={currentPage === totalPages}
+                  className="!px-2 !py-1 !bg-[#232834] rounded disabled:opacity-50"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
-};
-
-export default Transactions;
+}

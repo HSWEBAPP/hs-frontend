@@ -56,6 +56,7 @@ API.patch(`admin/users/${id}/toggle`, { status });
 // Deduct ₹10 for a tool usage
 export const deductWallet = (feature) => API.post("wallet/deduct-tool-usage", { feature });
 
+
 // Recharge wallet (QR Upload)
 export const rechargeWallet = (formData) =>
   API.post("wallet/user/recharge/qr", formData, {
@@ -88,8 +89,14 @@ export const approveRecharge = (id) =>
 export const rejectRechargeRequest = (id) =>
   API.put(`admin/wallet/recharges/reject/${id}`);
 
-export const fetchTransactions = () =>
-  API.get("admin/wallet/transactions");
+// ================= ADMIN =================
+export const fetchAdminTransactions = () =>
+  API.get("admin/wallet/transactions"); // all users
+
+// ================= USER =================
+export const fetchUserTransactions = () =>
+  API.get("wallet/transactions"); // only logged-in user
+
 
 export const manualRecharge = (data) =>
   API.post("admin/wallet/recharges/manual", data);

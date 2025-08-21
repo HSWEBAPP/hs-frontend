@@ -13,6 +13,7 @@ import AdminWallet from "./pages/AdminWallet";
 import RechargeUserHistory from "./pages/RechargeUserHistory";
 import UserEdit from "./pages/User/UserEdit"
 import Editor from "./pages/Editor"
+import Transactions from "./pages/Transactions";
 
 function App() {
   return (
@@ -48,6 +49,14 @@ function App() {
           element={
             <PrivateRoute>
               <RechargeUserHistory />
+            </PrivateRoute>
+          }
+        />
+         <Route
+          path="/transaction-history"
+          element={
+            <PrivateRoute>
+              <Transactions />
             </PrivateRoute>
           }
         />

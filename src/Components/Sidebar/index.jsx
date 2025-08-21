@@ -10,6 +10,7 @@ import {
   QrCode,
   ChevronLeft,
   ChevronRight,
+   Receipt
 } from "lucide-react";
 
 export default function Sidebar() {
@@ -51,11 +52,17 @@ export default function Sidebar() {
       name: "Editor",
       icon: <LayoutDashboard size={20} />,
     },
+     {
+    role: "all",
+    path: "/recharge-history",
+    name: "Recharge History",
+    icon: <History size={20} />,  // <-- Make sure this icon is imported
+  },
     {
-      role: "user",
-      path: "/recharge-history",
-      name: "Recharge History",
-      icon: <History size={20} />,
+      role: "all",
+      path: "/transaction-history",
+      name: "Transaction History",
+      icon: <Receipt size={20} />,
     },
     {
       role: "admin",
