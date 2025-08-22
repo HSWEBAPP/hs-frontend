@@ -269,92 +269,133 @@ export default function IDCardEditor() {
     setOutputs((o) => ({ ...o, [area]: dataUrl }));
   }, [imageSrc, croppedAreaPixels, area, previewAdjust]);
 
-const downloadPDF = useCallback(async () => {
-  const pdf = new jsPDF({
-    orientation: "portrait",
-    unit: "px",
-    format: "a4",
-  });
+  const downloadPDF = useCallback(async () => {
+    const pdf = new jsPDF({
+      orientation: "portrait",
+      unit: "px",
+      format: "a4",
+    });
 
-  const m = 24;
-  const pdfWidth = pdf.internal.pageSize.getWidth();
-  const pdfHeight = pdf.internal.pageSize.getHeight();
+    const m = 24;
+    const pdfWidth = pdf.internal.pageSize.getWidth();
+    const pdfHeight = pdf.internal.pageSize.getHeight();
 
-  const renderHighResImage = async (src, width, height, filters) => {
-    const img = new Image();
-    img.src = src;
-    await new Promise((resolve) => (img.onload = resolve));
+    const renderHighResImage = async (src, width, height, filters) => {
+      const img = new Image();
+      img.src = src;
+      await new Promise((resolve) => (img.onload = resolve));
 
-    const scale = 4; // higher for quality
-    const canvas = document.createElement("canvas");
-    canvas.width = width * scale;
-    canvas.height = height * scale;
-    const ctx = canvas.getContext("2d");
+      const scale = 4; // higher for quality
+      const canvas = document.createElement("canvas");
+      canvas.width = width * scale;
+      canvas.height = height * scale;
+      const ctx = canvas.getContext("2d");
 
-    const b = clamp(100 + filters.brightness * 0.5, 0, 200);
-    const c = clamp(100 + filters.contrast * 0.5, 0, 200);
-    const s = clamp(100 + filters.saturation, 0, 200);
-    const gamma = clamp(1 + filters.shadows / 50, 0.1, 5);
+      const b = clamp(100 + filters.brightness * 0.5, 0, 200);
+      const c = clamp(100 + filters.contrast * 0.5, 0, 200);
+      const s = clamp(100 + filters.saturation, 0, 200);
+      const gamma = clamp(1 + filters.shadows / 50, 0.1, 5);
 
-    ctx.filter = `brightness(${b}%) contrast(${c}%) saturate(${s}%)`;
-    ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = "high";
+      ctx.filter = `brightness(${b}%) contrast(${c}%) saturate(${s}%)`;
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = "high";
 
-    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
-    if (Math.abs(gamma - 1) > 0.01) {
-      const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      const d = imgData.data;
-      const invGamma = 1 / gamma;
-      for (let i = 0; i < d.length; i += 4) {
-        d[i] = 255 * Math.pow(d[i] / 255, invGamma);
-        d[i + 1] = 255 * Math.pow(d[i + 1] / 255, invGamma);
-        d[i + 2] = 255 * Math.pow(d[i + 2] / 255, invGamma);
+      if (Math.abs(gamma - 1) > 0.01) {
+        const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const d = imgData.data;
+        const invGamma = 1 / gamma;
+        for (let i = 0; i < d.length; i += 4) {
+          d[i] = 255 * Math.pow(d[i] / 255, invGamma);
+          d[i + 1] = 255 * Math.pow(d[i + 1] / 255, invGamma);
+          d[i + 2] = 255 * Math.pow(d[i + 2] / 255, invGamma);
+        }
+        ctx.putImageData(imgData, 0, 0);
       }
-      ctx.putImageData(imgData, 0, 0);
-    }
 
-    return canvas.toDataURL("image/png", 1);
-  };
+      return canvas.toDataURL("image/png", 1);
+    };
 
-  // Calculate scale for layout
-  let scaleFactor;
-  if (layout === "lr") {
-    const totalWidth = dims.Front.width + dims.Back.width;
-    scaleFactor = (pdfWidth - 3 * m) / totalWidth;
-  } else {
-    const totalHeight = dims.Front.height + dims.Back.height;
-    scaleFactor = (pdfHeight - 3 * m) / totalHeight;
-  }
-
-  // Front
-  if (outputs.Front) {
-    const imgData = await renderHighResImage(outputs.Front, dims.Front.width, dims.Front.height, previewAdjust.Front.filters);
-    pdf.addImage(imgData, "PNG", m, m, dims.Front.width * scaleFactor, dims.Front.height * scaleFactor);
-  }
-
-  // Back
-  if (outputs.Back) {
-    const imgData = await renderHighResImage(outputs.Back, dims.Back.width, dims.Back.height, previewAdjust.Back.filters);
+    // Calculate scale for layout
+    let scaleFactor;
     if (layout === "lr") {
-      pdf.addImage(imgData, "PNG", m + dims.Front.width * scaleFactor + m, m, dims.Back.width * scaleFactor, dims.Back.height * scaleFactor);
+      const totalWidth = dims.Front.width + dims.Back.width;
+      scaleFactor = (pdfWidth - 3 * m) / totalWidth;
     } else {
-      pdf.addImage(imgData, "PNG", m, m + dims.Front.height * scaleFactor + m, dims.Back.width * scaleFactor, dims.Back.height * scaleFactor);
+      const totalHeight = dims.Front.height + dims.Back.height;
+      scaleFactor = (pdfHeight - 3 * m) / totalHeight;
     }
-  }
 
-  // Photo (optional small position inside Front)
-  if (outputs.Photo) {
-    const imgData = await renderHighResImage(outputs.Photo, dims.Photo.width, dims.Photo.height, previewAdjust.Photo.filters);
-    pdf.addImage(imgData, "PNG", m + previewAdjust.Photo.x * scaleFactor, m + previewAdjust.Photo.y * scaleFactor, dims.Photo.width * scaleFactor, dims.Photo.height * scaleFactor);
-  }
+    // Front
+    if (outputs.Front) {
+      const imgData = await renderHighResImage(
+        outputs.Front,
+        dims.Front.width,
+        dims.Front.height,
+        previewAdjust.Front.filters
+      );
+      pdf.addImage(
+        imgData,
+        "PNG",
+        m,
+        m,
+        dims.Front.width * scaleFactor,
+        dims.Front.height * scaleFactor
+      );
+    }
 
-  pdf.save("high-resolution-id-card.pdf");
-}, [outputs, layout, dims, previewAdjust]);
+    // Back
+    if (outputs.Back) {
+      const imgData = await renderHighResImage(
+        outputs.Back,
+        dims.Back.width,
+        dims.Back.height,
+        previewAdjust.Back.filters
+      );
+      if (layout === "lr") {
+        pdf.addImage(
+          imgData,
+          "PNG",
+          m + dims.Front.width * scaleFactor + m,
+          m,
+          dims.Back.width * scaleFactor,
+          dims.Back.height * scaleFactor
+        );
+      } else {
+        pdf.addImage(
+          imgData,
+          "PNG",
+          m,
+          m + dims.Front.height * scaleFactor + m,
+          dims.Back.width * scaleFactor,
+          dims.Back.height * scaleFactor
+        );
+      }
+    }
 
+    // Photo (optional small position inside Front)
+    if (outputs.Photo) {
+      const imgData = await renderHighResImage(
+        outputs.Photo,
+        dims.Photo.width,
+        dims.Photo.height,
+        previewAdjust.Photo.filters
+      );
+      pdf.addImage(
+        imgData,
+        "PNG",
+        m + previewAdjust.Photo.x * scaleFactor,
+        m + previewAdjust.Photo.y * scaleFactor,
+        dims.Photo.width * scaleFactor,
+        dims.Photo.height * scaleFactor
+      );
+    }
 
+    pdf.save("high-resolution-id-card.pdf");
+  }, [outputs, layout, dims, previewAdjust]);
 
-const [isDownloading, setIsDownloading] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
   // Old style logic (kept as requested)
   const handleDownload = () => {
     const cost = 10;
@@ -373,45 +414,43 @@ const [isDownloading, setIsDownloading] = useState(false);
       downloadPDF();
       setShowConfirmPopup(false);
       fetchBalance();
-          setIsDownloading(false);
-    } else{
-      toast.error("Something went wrong!") ;
-       setIsDownloading(false);
-    } 
-      
+      setIsDownloading(false);
+    } else {
+      toast.error("Something went wrong!");
+      setIsDownloading(false);
+    }
   };
 
   useEffect(() => setZoom(area === "Photo" ? 1.4 : 1), [area]);
   const isPhotoArea = area === "Photo" && photoUploaded;
 
-const handleAutoEnhance = async () => {
-  if (!outputs[area]) return;
+  const handleAutoEnhance = async () => {
+    if (!outputs[area]) return;
 
-  const img = new Image();
-  img.src = outputs[area];
-  await new Promise((resolve) => (img.onload = resolve));
+    const img = new Image();
+    img.src = outputs[area];
+    await new Promise((resolve) => (img.onload = resolve));
 
-  const canvas = document.createElement("canvas");
-  canvas.width = dims[area].width;
-  canvas.height = dims[area].height;
+    const canvas = document.createElement("canvas");
+    canvas.width = dims[area].width;
+    canvas.height = dims[area].height;
 
-  const ctx = canvas.getContext("2d");
+    const ctx = canvas.getContext("2d");
 
-  // Apply basic AI-like enhancements (adjust as needed)
-  ctx.filter = "brightness(1.1) contrast(1.2) saturate(1.3)";
-  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    // Apply basic AI-like enhancements (adjust as needed)
+    ctx.filter = "brightness(1.1) contrast(1.2) saturate(1.3)";
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
-  // Convert to base64 and update the preview
-  const enhancedImage = canvas.toDataURL("image/png", 1.0);
+    // Convert to base64 and update the preview
+    const enhancedImage = canvas.toDataURL("image/png", 1.0);
 
-  setOutputs((prev) => ({
-    ...prev,
-    [area]: enhancedImage,
-  }));
+    setOutputs((prev) => ({
+      ...prev,
+      [area]: enhancedImage,
+    }));
 
-  toast.success("Auto enhancement applied!");
-};
-
+    toast.success("Auto enhancement applied!");
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900">
@@ -521,7 +560,7 @@ const handleAutoEnhance = async () => {
                     image={imageSrc}
                     crop={crop}
                     zoom={zoom}
-                    aspect={aspect}
+                     aspect={dims.Photo.width / dims.Photo.height} 
                     onCropChange={setCrop}
                     onZoomChange={setZoom}
                     onCropComplete={onCropComplete}
@@ -812,20 +851,18 @@ const handleAutoEnhance = async () => {
             Download PDF
           </button>
           <button
-  onClick={handleAutoEnhance}
-  disabled={!outputs[area]}
-  className={`w-full px-4 py-2 mb-2 rounded-lg text-white ${
-    outputs[area]
-      ? "!bg-green-600 hover:bg-green-700"
-      : "!bg-gray-400 text-gray-200 cursor-not-allowed"
-  }`}
->
-  Auto Enhance
-</button>
+            onClick={handleAutoEnhance}
+            disabled={!outputs[area]}
+            className={`w-full px-4 py-2 mb-2 rounded-lg text-white ${
+              outputs[area]
+                ? "!bg-green-600 hover:bg-green-700"
+                : "!bg-gray-400 text-gray-200 cursor-not-allowed"
+            }`}
+          >
+            Auto Enhance
+          </button>
         </aside>
-
       </div>
-
       {/* Modals and Loader */}
       {showConfirmPopup && (
         <div className="fixed inset-0 flex items-center justify-center bg-black/50">
@@ -843,18 +880,18 @@ const handleAutoEnhance = async () => {
               <button
                 disabled={isDownloading}
                 onClick={confirmDownload}
-               className={`!bg-blue-600 text-white px-4 py-2 rounded flex items-center gap-2 ${
-            isDownloading ? "opacity-50 cursor-not-allowed" : ""
-          }`}
+                className={`!bg-blue-600 text-white px-4 py-2 rounded flex items-center gap-2 ${
+                  isDownloading ? "opacity-50 cursor-not-allowed" : ""
+                }`}
               >
                 {isDownloading ? (
-            <>
-              <span className="loader border-2 border-white border-t-transparent rounded-full w-4 h-4 animate-spin"></span>
-              Processing...
-            </>
-          ) : (
-            "Yes"
-          )}
+                  <>
+                    <span className="loader border-2 border-white border-t-transparent rounded-full w-4 h-4 animate-spin"></span>
+                    Processing...
+                  </>
+                ) : (
+                  "Yes"
+                )}
               </button>
             </div>
           </div>
@@ -918,7 +955,7 @@ const handleAutoEnhance = async () => {
 
       {loadingPDF && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center">
-          <div className="bg-white p-4 rounded-lg shadow-lg">
+          <div className="!bg-white p-4 rounded-lg shadow-lg">
             Loading PDF...
           </div>
         </div>
