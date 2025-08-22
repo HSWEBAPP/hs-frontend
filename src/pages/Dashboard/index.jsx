@@ -4,11 +4,11 @@ import { useWallet } from "../../contexts/WalletContext";
 import Header from "../../Components/Header";
 import Aadhar from "../../assets/images/aadhar.png";
 import Photo from "../../assets/images/photo.png";
+import { Link } from "react-router-dom";
 
 
 export default function Dashboard() {
   const { balance } = useWallet();
-  console.log(balance, 8787990);
 
   return (
     <div className="flex min-h-screen">
@@ -24,19 +24,22 @@ export default function Dashboard() {
           </h2>
           <hr className="text-black" />
           <div className="grid grid-cols-3 gap-4 mb-8 mt-4">
-            <div className="bg-[#FFF4D7] text-black p-4 rounded shadow">
-              ID Card Printing
-              <div className="mt-4">
-                <img src={Aadhar} />
-              </div>
-            </div>
-            <div className="bg-[#FFF4D7] text-black p-4 rounded shadow">
+          <Link to="/editor">
+  <div className="bg-[#FFF4D7] text-black p-4 rounded shadow cursor-pointer transform transition duration-200 hover:scale-105 hover:shadow-xl hover:bg-[#FFE7A1]">
+    ID Card Printing
+    <div className="mt-4">
+      <img src={Aadhar} alt="ID Card" />
+    </div>
+  </div>
+</Link>
+
+            <div className="!bg-[#FFF4D7] text-black p-4 rounded shadow">
               Passport Photo
               <div className="mt-4">
                 <img src={Photo} />
               </div>
             </div>
-            <div className="bg-gray-100 p-4 rounded shadow text-black">
+            <div className="!bg-gray-100 p-4 rounded shadow text-black">
               Baby Names
               <div className="mt-4">
                 <img src={Photo} />

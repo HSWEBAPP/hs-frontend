@@ -46,12 +46,12 @@ export default function Sidebar() {
       name: "Manage Recharge",
       icon: <Wallet size={20} />,
     },
-      {
-      role: "all",
-      path: "/editor",
-      name: "Editor",
-      icon: <LayoutDashboard size={20} />,
-    },
+    //   {
+    //   role: "all",
+    //   path: "/editor",
+    //   name: "Editor",
+    //   icon: <LayoutDashboard size={20} />,
+    // },
      {
     role: "all",
     path: "/recharge-history",

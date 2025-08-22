@@ -1,5 +1,5 @@
 // pages/admin/TransactionsPage.jsx
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import Sidebar from "../../Components/Sidebar";
 import Header from "../../Components/Header";
 import { fetchUserTransactions, fetchAdminTransactions } from "../../api/auth";
@@ -68,65 +68,85 @@ export default function TransactionsPage() {
                   <th className="px-3 py-3 text-gray-600 text-center">S.No</th>
                   {role === "admin" && (
                     <>
-                    <th className="px-3 py-3 text-gray-600 text-center">User</th>
-                       <th className="px-3 py-3 text-gray-600 text-center">Email</th>
+                      <th className="px-3 py-3 text-gray-600 text-center">
+                        User
+                      </th>
+                      <th className="px-3 py-3 text-gray-600 text-center">
+                        Email
+                      </th>
                     </>
                   )}
-                  <th className="px-3 py-3 text-gray-600 text-center">Description</th>
-                  <th className="px-3 py-3 text-gray-600 text-center">Amount</th>
+                  <th className="px-3 py-3 text-gray-600 text-center">
+                    Description
+                  </th>
+                  <th className="px-3 py-3 text-gray-600 text-center">
+                    Amount
+                  </th>
                   <th className="px-3 py-3 text-gray-600 text-center">Type</th>
-                  <th className="px-3 py-3 text-gray-600 text-center">Date & Time</th>
+                  <th className="px-3 py-3 text-gray-600 text-center">
+                    Date & Time
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {loading
-                  ? Array.from({ length: rowsPerPage }).map((_, idx) => (
-                      <tr key={idx} className={idx % 2 === 0 ? "bg-gray-50" : "bg-white"}>
-                        {Array.from({ length: role === "admin" ? 6 : 5 }).map((_, i) => (
+                {loading ? (
+                  Array.from({ length: rowsPerPage }).map((_, idx) => (
+                    <tr
+                      key={idx}
+                      className={idx % 2 === 0 ? "bg-gray-50" : "bg-white"}
+                    >
+                      {Array.from({ length: role === "admin" ? 6 : 5 }).map(
+                        (_, i) => (
                           <td key={i} className="px-3 py-3">
                             <Skeleton height={20} />
                           </td>
-                        ))}
-                      </tr>
-                    ))
-                  : currentRows.length > 0
-                  ? currentRows.map((t, index) => (
-                      <tr key={t._id} className="hover:bg-gray-50 transition duration-200">
-                        <td className="px-3 py-3 text-center font-medium text-gray-600">
-                          {indexOfFirstRow + index + 1}
-                        </td>
-                        {role === "admin" && (
-                          <>
-                          <td className="px-3 py-3 text-gray-600 text-center">
+                        )
+                      )}
+                    </tr>
+                  ))
+                ) : currentRows.length > 0 ? (
+                  currentRows.map((t, index) => (
+                    <tr
+                      key={t._id}
+                      className="hover:bg-gray-50 transition duration-200"
+                    >
+                      <td className="px-3 py-2.5 text-center font-medium text-gray-600">
+                        {indexOfFirstRow + index + 1}
+                      </td>
+                      {role === "admin" && (
+                        <>
+                          <td className="px-3 py-2.5 text-gray-600 text-center">
                             {t.user?.name || "N/A"}
                           </td>
-                          <td className="px-3 py-3 text-gray-600 text-center">
+                          <td className="px-3 py-2.5 text-gray-600 text-center">
                             {t.user?.email || "N/A"}
                           </td>
-                          </>
-                        )}
-                        <td className="px-3 py-3 font-mono text-center text-gray-600">
-                          {t.description || "-"}
-                        </td>
-                        <td className="px-3 py-3 font-semibold text-center !text-green-600">
-                          ₹{t.amount}
-                        </td>
-                        <td className="px-3 py-3 text-gray-600 text-center">{t.type}</td>
-                        <td className="px-3 py-3 text-gray-600 text-center">
-                          {new Date(t.createdAt).toLocaleString()}
-                        </td>
-                      </tr>
-                    ))
-                  : (
-                      <tr>
-                        <td
-                          colSpan={role === "admin" ? 6 : 5}
-                          className="text-center py-6 text-gray-500 italic"
-                        >
-                          No transactions found 🚫
-                        </td>
-                      </tr>
-                    )}
+                        </>
+                      )}
+                      <td className="px-3 py-2.5 font-mono text-center text-gray-600">
+                        {t.description || "-"}
+                      </td>
+                      <td className="px-3 py-2.5 font-semibold text-center !text-green-600">
+                        ₹{t.amount}
+                      </td>
+                      <td className="px-3 py-2.5 text-gray-600 text-center">
+                        {t.type}
+                      </td>
+                      <td className="px-3 py-2.5 text-gray-600 text-center">
+                        {new Date(t.createdAt).toLocaleString()}
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td
+                      colSpan={role === "admin" ? 6 : 5}
+                      className="text-center py-6 text-gray-500 italic"
+                    >
+                      No transactions found 🚫
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
@@ -139,29 +159,49 @@ export default function TransactionsPage() {
                 {Math.min(indexOfLastRow, transactions.length)} of{" "}
                 {transactions.length} entries
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-2 items-center">
                 <button
-                  onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                  onClick={() =>
+                    setCurrentPage((prev) => Math.max(prev - 1, 1))
+                  }
                   disabled={currentPage === 1}
                   className="!px-2 !py-1 !bg-[#232834] rounded disabled:opacity-50"
                 >
                   Prev
                 </button>
-                {Array.from({ length: totalPages }, (_, i) => (
-                  <button
-                    key={i}
-                    onClick={() => setCurrentPage(i + 1)}
-                    className={`!px-2 !py-1 rounded ${
-                      currentPage === i + 1
-                        ? "!bg-blue-600 !text-white"
-                        : "!bg-[#232834]"
-                    }`}
-                  >
-                    {i + 1}
-                  </button>
-                ))}
+
+                {/* Show max 5 pages */}
+                {(() => {
+                  let startPage = Math.max(1, currentPage - 2);
+                  let endPage = Math.min(totalPages, startPage + 4);
+
+                  // Adjust start if less than 5 pages
+                  if (endPage - startPage < 4) {
+                    startPage = Math.max(1, endPage - 4);
+                  }
+
+                  return Array.from(
+                    { length: endPage - startPage + 1 },
+                    (_, i) => startPage + i
+                  ).map((page) => (
+                    <button
+                      key={page}
+                      onClick={() => setCurrentPage(page)}
+                      className={`!px-2 !py-1 rounded ${
+                        currentPage === page
+                          ? "!bg-blue-600 !text-white"
+                          : "!bg-[#232834]"
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  ));
+                })()}
+
                 <button
-                  onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                  onClick={() =>
+                    setCurrentPage((prev) => Math.min(prev + 1, totalPages))
+                  }
                   disabled={currentPage === totalPages}
                   className="!px-2 !py-1 !bg-[#232834] rounded disabled:opacity-50"
                 >
