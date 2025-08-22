@@ -47,9 +47,13 @@ function readFileAsDataURL(file) {
   });
 }
 
-async function pdfFirstPageToDataURL(file, scale = 1) {
+// ✅ accepts optional password now
+async function pdfFirstPageToDataURL(file, scale = 1, password) {
   const arrayBuffer = await file.arrayBuffer();
-  const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+  const loadingTask = pdfjsLib.getDocument({
+    data: arrayBuffer,
+    ...(password ? { password } : {}),
+  });
   const pdf = await loadingTask.promise;
   const page = await pdf.getPage(1);
   const viewport = page.getViewport({ scale: 2 * scale });
@@ -151,8 +155,14 @@ export default function IDCardEditor() {
   const [layout, setLayout] = useState("lr");
   const [showConfirmPopup, setShowConfirmPopup] = useState(false);
   const [showInsufficientPopup, setShowInsufficientPopup] = useState(false);
-  const fileInputRef = useRef(null);
 
+  // ✅ password modal states
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [pdfPassword, setPdfPassword] = useState("");
+  const [pendingPDF, setPendingPDF] = useState(null);
+  const [loadingPDF, setLoadingPDF] = useState(false);
+
+  const fileInputRef = useRef(null);
   const { balance, fetchBalance } = useWallet();
 
   useEffect(() => {
@@ -180,14 +190,71 @@ export default function IDCardEditor() {
     const isPDF =
       file.type === "application/pdf" ||
       file.name.toLowerCase().endsWith(".pdf");
-    const src = isPDF
-      ? await pdfFirstPageToDataURL(file)
-      : await readFileAsDataURL(file);
-    setImageSrc(src);
-    setCrop({ x: 0, y: 0 });
-    setZoom(1);
-    setEditingEnabled(true);
-    setPhotoUploaded(true);
+
+    if (!isPDF) {
+      const src = await readFileAsDataURL(file);
+      setImageSrc(src);
+      setCrop({ x: 0, y: 0 });
+      setZoom(1);
+      setEditingEnabled(true);
+      setPhotoUploaded(true);
+      return;
+    }
+
+    // PDFs: try once without password, catch PasswordException
+    try {
+      setLoadingPDF(true);
+      const src = await pdfFirstPageToDataURL(file); // no password
+      setImageSrc(src);
+      setCrop({ x: 0, y: 0 });
+      setZoom(1);
+      setEditingEnabled(true);
+      setPhotoUploaded(true);
+      setLoadingPDF(false);
+    } catch (error) {
+      setLoadingPDF(false);
+      const needPw =
+        error?.name === "PasswordException" ||
+        error?.code === pdfjsLib.PasswordResponses.NEED_PASSWORD ||
+        error?.code === pdfjsLib.PasswordResponses.INCORRECT_PASSWORD;
+      if (needPw) {
+        setPendingPDF(file);
+        setShowPasswordModal(true);
+      } else {
+        console.error(error);
+        toast.error("Invalid or corrupted PDF.");
+      }
+    }
+  };
+
+  // ✅ unlock using the provided password (uses pdfFirstPageToDataURL with password)
+  const unlockPDF = async () => {
+    if (!pendingPDF || !pdfPassword) return;
+    try {
+      setLoadingPDF(true);
+      const src = await pdfFirstPageToDataURL(pendingPDF, 1, pdfPassword);
+      setImageSrc(src);
+      setCrop({ x: 0, y: 0 });
+      setZoom(1);
+      setEditingEnabled(true);
+      setPhotoUploaded(true);
+      setShowPasswordModal(false);
+      setPdfPassword("");
+      setPendingPDF(null);
+      setLoadingPDF(false);
+    } catch (error) {
+      setLoadingPDF(false);
+      const wrongPw =
+        error?.name === "PasswordException" ||
+        error?.code === pdfjsLib.PasswordResponses.INCORRECT_PASSWORD;
+      if (wrongPw) {
+        toast.error("Incorrect password. Try again.");
+      } else {
+        console.error(error);
+        toast.error("Error unlocking PDF.");
+        setShowPasswordModal(false);
+      }
+    }
   };
 
   const doUpdate = useCallback(async () => {
@@ -255,7 +322,7 @@ export default function IDCardEditor() {
     doc.save("id-card.pdf");
   }, [outputs, layout, dims, previewAdjust]);
 
-  // Old style logic
+  // Old style logic (kept as requested)
   const handleDownload = () => {
     const cost = 10;
     if (balance >= cost) {
@@ -330,13 +397,14 @@ export default function IDCardEditor() {
                     });
                     setCrop({ x: 0, y: 0 });
                     setZoom(1);
-                    fileInputRef.current.value = ""; // clear file input
+                    if (fileInputRef.current) fileInputRef.current.value = "";
                   }}
                 >
                   Clear
                 </button>
               </div>
             </div>
+
             {!imageSrc ? (
               <div className="border-2 border-dashed rounded-xl p-8 text-center">
                 <p className="text-sm mb-4">
@@ -732,6 +800,47 @@ export default function IDCardEditor() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* ✅ Password Modal */}
+      {showPasswordModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center">
+          <div className="bg-white rounded-lg p-6 w-96">
+            <h2 className="text-lg font-semibold mb-4">Enter PDF Password</h2>
+            <input
+              type="password"
+              value={pdfPassword}
+              onChange={(e) => setPdfPassword(e.target.value)}
+              className="border rounded w-full p-2 mb-4"
+              placeholder="Password"
+            />
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => {
+                  setShowPasswordModal(false);
+                  setPdfPassword("");
+                  setPendingPDF(null);
+                }}
+                className="px-4 py-2 bg-gray-300 rounded"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={unlockPDF}
+                className="px-4 py-2 bg-blue-600 text-white rounded"
+              >
+                Unlock
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* optional simple loader */}
+      {loadingPDF && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center">
+          <div className="bg-white p-4 rounded-lg">Loading PDF...</div>
         </div>
       )}
     </div>
