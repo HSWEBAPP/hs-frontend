@@ -269,59 +269,92 @@ export default function IDCardEditor() {
     setOutputs((o) => ({ ...o, [area]: dataUrl }));
   }, [imageSrc, croppedAreaPixels, area, previewAdjust]);
 
-  const downloadPDF = useCallback(() => {
-    const doc = new jsPDF({ unit: "pt", format: "a4" });
-    const m = 24;
-    const front = outputs.Front;
-    const back = outputs.Back;
-    const photo = outputs.Photo;
-    if (!front && !back) return;
+const downloadPDF = useCallback(async () => {
+  const pdf = new jsPDF({
+    orientation: "portrait",
+    unit: "px",
+    format: "a4",
+  });
 
-    const frontX = m;
-    const frontY = m;
+  const m = 24;
+  const pdfWidth = pdf.internal.pageSize.getWidth();
+  const pdfHeight = pdf.internal.pageSize.getHeight();
 
-    let backX = frontX;
-    let backY = frontY;
+  const renderHighResImage = async (src, width, height, filters) => {
+    const img = new Image();
+    img.src = src;
+    await new Promise((resolve) => (img.onload = resolve));
 
-    if (layout === "lr") {
-      backX = frontX + dims.Front.width + m;
-      backY = frontY;
-    } else {
-      backX = frontX;
-      backY = frontY + dims.Front.height + m;
+    const scale = 4; // higher for quality
+    const canvas = document.createElement("canvas");
+    canvas.width = width * scale;
+    canvas.height = height * scale;
+    const ctx = canvas.getContext("2d");
+
+    const b = clamp(100 + filters.brightness * 0.5, 0, 200);
+    const c = clamp(100 + filters.contrast * 0.5, 0, 200);
+    const s = clamp(100 + filters.saturation, 0, 200);
+    const gamma = clamp(1 + filters.shadows / 50, 0.1, 5);
+
+    ctx.filter = `brightness(${b}%) contrast(${c}%) saturate(${s}%)`;
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
+
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+    if (Math.abs(gamma - 1) > 0.01) {
+      const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const d = imgData.data;
+      const invGamma = 1 / gamma;
+      for (let i = 0; i < d.length; i += 4) {
+        d[i] = 255 * Math.pow(d[i] / 255, invGamma);
+        d[i + 1] = 255 * Math.pow(d[i + 1] / 255, invGamma);
+        d[i + 2] = 255 * Math.pow(d[i + 2] / 255, invGamma);
+      }
+      ctx.putImageData(imgData, 0, 0);
     }
 
-    if (front)
-      doc.addImage(
-        front,
-        "PNG",
-        frontX,
-        frontY,
-        dims.Front.width,
-        dims.Front.height
-      );
-    if (back)
-      doc.addImage(
-        back,
-        "PNG",
-        backX,
-        backY,
-        dims.Back.width,
-        dims.Back.height
-      );
-    if (photo)
-      doc.addImage(
-        photo,
-        "PNG",
-        frontX + previewAdjust.Photo.x,
-        frontY + previewAdjust.Photo.y,
-        dims.Photo.width,
-        dims.Photo.height
-      );
+    return canvas.toDataURL("image/png", 1);
+  };
 
-    doc.save("id-card.pdf");
-  }, [outputs, layout, dims, previewAdjust]);
+  // Calculate scale for layout
+  let scaleFactor;
+  if (layout === "lr") {
+    const totalWidth = dims.Front.width + dims.Back.width;
+    scaleFactor = (pdfWidth - 3 * m) / totalWidth;
+  } else {
+    const totalHeight = dims.Front.height + dims.Back.height;
+    scaleFactor = (pdfHeight - 3 * m) / totalHeight;
+  }
 
+  // Front
+  if (outputs.Front) {
+    const imgData = await renderHighResImage(outputs.Front, dims.Front.width, dims.Front.height, previewAdjust.Front.filters);
+    pdf.addImage(imgData, "PNG", m, m, dims.Front.width * scaleFactor, dims.Front.height * scaleFactor);
+  }
+
+  // Back
+  if (outputs.Back) {
+    const imgData = await renderHighResImage(outputs.Back, dims.Back.width, dims.Back.height, previewAdjust.Back.filters);
+    if (layout === "lr") {
+      pdf.addImage(imgData, "PNG", m + dims.Front.width * scaleFactor + m, m, dims.Back.width * scaleFactor, dims.Back.height * scaleFactor);
+    } else {
+      pdf.addImage(imgData, "PNG", m, m + dims.Front.height * scaleFactor + m, dims.Back.width * scaleFactor, dims.Back.height * scaleFactor);
+    }
+  }
+
+  // Photo (optional small position inside Front)
+  if (outputs.Photo) {
+    const imgData = await renderHighResImage(outputs.Photo, dims.Photo.width, dims.Photo.height, previewAdjust.Photo.filters);
+    pdf.addImage(imgData, "PNG", m + previewAdjust.Photo.x * scaleFactor, m + previewAdjust.Photo.y * scaleFactor, dims.Photo.width * scaleFactor, dims.Photo.height * scaleFactor);
+  }
+
+  pdf.save("high-resolution-id-card.pdf");
+}, [outputs, layout, dims, previewAdjust]);
+
+
+
+const [isDownloading, setIsDownloading] = useState(false);
   // Old style logic (kept as requested)
   const handleDownload = () => {
     const cost = 10;
@@ -331,8 +364,8 @@ export default function IDCardEditor() {
       setShowInsufficientPopup(true);
     }
   };
-
   const confirmDownload = async () => {
+    setIsDownloading(true);
     const cost = 10;
     const success = await deductWallet(cost);
     if (success) {
@@ -340,79 +373,128 @@ export default function IDCardEditor() {
       downloadPDF();
       setShowConfirmPopup(false);
       fetchBalance();
-    } else toast.error("Something went wrong!");
+          setIsDownloading(false);
+    } else{
+      toast.error("Something went wrong!") ;
+       setIsDownloading(false);
+    } 
+      
   };
 
   useEffect(() => setZoom(area === "Photo" ? 1.4 : 1), [area]);
   const isPhotoArea = area === "Photo" && photoUploaded;
 
+const handleAutoEnhance = async () => {
+  if (!outputs[area]) return;
+
+  const img = new Image();
+  img.src = outputs[area];
+  await new Promise((resolve) => (img.onload = resolve));
+
+  const canvas = document.createElement("canvas");
+  canvas.width = dims[area].width;
+  canvas.height = dims[area].height;
+
+  const ctx = canvas.getContext("2d");
+
+  // Apply basic AI-like enhancements (adjust as needed)
+  ctx.filter = "brightness(1.1) contrast(1.2) saturate(1.3)";
+  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+  // Convert to base64 and update the preview
+  const enhancedImage = canvas.toDataURL("image/png", 1.0);
+
+  setOutputs((prev) => ({
+    ...prev,
+    [area]: enhancedImage,
+  }));
+
+  toast.success("Auto enhancement applied!");
+};
+
+
   return (
-    <div className="min-h-screen bg-gray-50 !text-black">
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-6">
+    <div className="min-h-screen bg-gray-50 text-gray-900">
+      <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-6">
         {/* LEFT SIDE */}
         <div className="space-y-6">
+          {/* Editor Section */}
           <div className="bg-white rounded-2xl shadow p-4">
             <div className="flex items-center justify-between mb-3">
-              <div className="text-sm font-medium opacity-70">
-                EDITOR
-                <button
-                  className="mt-2 w-full px-4 py-2 border rounded-lg bg-red-500 text-white"
-                  onClick={() => {
-                    setImageSrc(null);
-                    setOutputs({ Photo: null, Front: null, Back: null });
-                    setEditingEnabled(false);
-                    setPhotoUploaded(false);
-                    setCroppedAreaPixels(null);
-                    setPreviewAdjust({
-                      Photo: {
-                        x: 0,
-                        y: 0,
-                        filters: {
-                          brightness: 0,
-                          contrast: 0,
-                          saturation: 0,
-                          shadows: 0,
-                        },
+              <h2 className="text-lg font-semibold">Editor</h2>
+              <button
+                onClick={() => {
+                  setImageSrc(null);
+                  setOutputs({ Photo: null, Front: null, Back: null });
+                  setEditingEnabled(false);
+                  setPhotoUploaded(false);
+                  setCroppedAreaPixels(null);
+                  setPreviewAdjust({
+                    Photo: {
+                      x: 0,
+                      y: 0,
+                      filters: {
+                        brightness: 0,
+                        contrast: 0,
+                        saturation: 0,
+                        shadows: 0,
                       },
-                      Front: {
-                        x: 0,
-                        y: 0,
-                        filters: {
-                          brightness: 0,
-                          contrast: 0,
-                          saturation: 0,
-                          shadows: 0,
-                        },
+                    },
+                    Front: {
+                      x: 0,
+                      y: 0,
+                      filters: {
+                        brightness: 0,
+                        contrast: 0,
+                        saturation: 0,
+                        shadows: 0,
                       },
-                      Back: {
-                        x: 0,
-                        y: 0,
-                        filters: {
-                          brightness: 0,
-                          contrast: 0,
-                          saturation: 0,
-                          shadows: 0,
-                        },
+                    },
+                    Back: {
+                      x: 0,
+                      y: 0,
+                      filters: {
+                        brightness: 0,
+                        contrast: 0,
+                        saturation: 0,
+                        shadows: 0,
                       },
-                    });
-                    setCrop({ x: 0, y: 0 });
-                    setZoom(1);
-                    if (fileInputRef.current) fileInputRef.current.value = "";
-                  }}
-                >
-                  Clear
-                </button>
-              </div>
+                    },
+                  });
+                  setCrop({ x: 0, y: 0 });
+                  setZoom(1);
+                  if (fileInputRef.current) fileInputRef.current.value = "";
+                }}
+                className="px-4 py-2 !bg-red-500 !text-white rounded-lg text-sm hover:bg-red-600"
+              >
+                Clear
+              </button>
             </div>
-
+            {editingEnabled && (
+              <div className="mt-4">
+                <div className="flex justify-between text-xs mb-1 text-gray-500">
+                  <span>Zoom</span>
+                  <span>{zoom.toFixed(2)}x</span>
+                </div>
+                <input
+                  type="range"
+                  min={1}
+                  max={3}
+                  step={0.01}
+                  value={zoom}
+                  onChange={(e) => setZoom(Number(e.target.value))}
+                  className="w-full accent-blue-600"
+                />
+              </div>
+            )}
             {!imageSrc ? (
-              <div className="border-2 border-dashed rounded-xl p-8 text-center">
-                <p className="text-sm mb-4">
+              <div className="border-2 border-dashed rounded-xl p-8 text-center bg-gray-50">
+                <p className="text-sm mb-4 text-gray-500">
                   Open a PDF or Image to create ID Card
                 </p>
                 <button
-                  className="px-4 py-2 rounded-lg bg-gray-900 text-white"
                   onClick={() => fileInputRef.current?.click()}
+                  className="px-6 py-2 rounded-lg !bg-blue-600 text-white font-medium hover:bg-blue-700"
                 >
                   Open a New File
                 </button>
@@ -449,29 +531,13 @@ export default function IDCardEditor() {
                 )}
               </div>
             )}
-
-            {editingEnabled && (
-              <div className="mt-3">
-                <div className="flex items-center justify-between text-xs mb-1">
-                  <span>Zoom</span>
-                  <span className="opacity-70">{zoom.toFixed(2)}x</span>
-                </div>
-                <input
-                  type="range"
-                  min={1}
-                  max={3}
-                  step={0.01}
-                  value={zoom}
-                  onChange={(e) => setZoom(Number(e.target.value))}
-                  className="w-full"
-                />
-              </div>
-            )}
           </div>
 
-          {/* PREVIEW */}
+          {/* Preview Section */}
           <div className="bg-white rounded-2xl shadow p-4">
-            <div className="text-sm font-medium opacity-70 mb-3">PREVIEW</div>
+            <h3 className="text-sm font-semibold text-gray-600 mb-3">
+              Preview
+            </h3>
             <div
               className={
                 layout === "lr"
@@ -479,20 +545,12 @@ export default function IDCardEditor() {
                   : "flex flex-col gap-4"
               }
             >
-              <div
-                style={{
-                  width: layout === "lr" ? dims.Front.width : "100%",
-                  height: dims.Front.height,
-                }}
-                className="border rounded-xl p-2 flex flex-col gap-2"
-              >
-                <div className="text-xs opacity-70">Front</div>
+              {/* Front Preview */}
+              <div className="border rounded-xl p-2">
+                <div className="text-xs text-gray-500 mb-1">Front</div>
                 <div
-                  className="bg-gray-50 rounded-lg flex items-center justify-center overflow-hidden relative"
-                  style={{
-                    width: layout === "lr" ? dims.Front.width : "100%",
-                    height: dims.Front.height,
-                  }}
+                  className="bg-gray-50 rounded-lg relative flex items-center justify-center overflow-hidden"
+                  style={{ width: dims.Front.width, height: dims.Front.height }}
                 >
                   {outputs.Front && (
                     <img
@@ -537,20 +595,12 @@ export default function IDCardEditor() {
                 </div>
               </div>
 
-              <div
-                style={{
-                  width: layout === "lr" ? dims.Back.width : "100%",
-                  height: dims.Back.height,
-                }}
-                className="border rounded-xl p-2 flex flex-col gap-2"
-              >
-                <div className="text-xs opacity-70">Back</div>
+              {/* Back Preview */}
+              <div className="border rounded-xl p-2">
+                <div className="text-xs text-gray-500 mb-1">Back</div>
                 <div
-                  className="bg-gray-50 rounded-lg flex items-center justify-center overflow-hidden relative"
-                  style={{
-                    width: layout === "lr" ? dims.Back.width : "100%",
-                    height: dims.Back.height,
-                  }}
+                  className="bg-gray-50 rounded-lg relative flex items-center justify-center overflow-hidden"
+                  style={{ width: dims.Back.width, height: dims.Back.height }}
                 >
                   {outputs.Back && (
                     <img
@@ -575,39 +625,45 @@ export default function IDCardEditor() {
                 </div>
               </div>
             </div>
-          </div>
 
-          <div className="flex gap-2 mb-3">
-            <span className="text-xs opacity-70">Preview Layout:</span>
-            <button
-              className={`px-2 py-1 text-xs rounded-full border ${
-                layout === "lr" ? "bg-black text-white" : "bg-white"
-              }`}
-              onClick={() => setLayout("lr")}
-            >
-              Left & Right
-            </button>
-            <button
-              className={`px-2 py-1 text-xs rounded-full border ${
-                layout === "tb" ? "bg-black text-white" : "bg-white"
-              }`}
-              onClick={() => setLayout("tb")}
-            >
-              Top & Bottom
-            </button>
+            {/* Layout Switch */}
+            <div className="flex gap-2 mt-4 items-center">
+              <p className="text-xl text-gray-500">Layout:</p>
+              <button
+                onClick={() => setLayout("lr")}
+                className={`px-3 py-1 rounded-full border text-xs ${
+                  layout === "lr"
+                    ? "!bg-black text-white"
+                    : "!bg-white hover:bg-gray-100"
+                }`}
+              >
+                Left & Right
+              </button>
+              <button
+                onClick={() => setLayout("tb")}
+                className={`px-3 py-1 rounded-full border text-xs ${
+                  layout === "tb"
+                    ? "!bg-black text-white"
+                    : "!bg-white hover:bg-gray-100"
+                }`}
+              >
+                Top & Bottom
+              </button>
+            </div>
           </div>
         </div>
 
-        {/* RIGHT SIDE */}
-        <aside className="bg-white rounded-2xl shadow p-4">
-          <div className="flex items-center justify-between">
-            <div className="font-medium">Area to Edit</div>
+        {/* RIGHT SIDE (Sidebar Controls) */}
+        <aside className="bg-white rounded-2xl shadow p-4 space-y-6">
+          {/* Area Selection */}
+          <div>
+            <h3 className="font-semibold text-sm mb-2">Area to Edit</h3>
             <div className="flex gap-2">
               {["Photo", "Front", "Back"].map((t) => (
                 <button
                   key={t}
-                  className={`px-2 py-1 text-xs rounded-full border ${
-                    area === t ? "!bg-black !text-white" : "!bg-white"
+                  className={`px-3 py-1 text-xs rounded-full border ${
+                    area === t ? "!bg-black text-white" : "!bg-white"
                   }`}
                   onClick={() => setArea(t)}
                 >
@@ -617,12 +673,13 @@ export default function IDCardEditor() {
             </div>
           </div>
 
-          <div className="mt-4 text-sm">
+          {/* Card Type */}
+          <div>
             <label className="block text-xs mb-1">Select Card Type</label>
             <select
               value={selectedType}
               onChange={(e) => setSelectedType(e.target.value)}
-              className="w-full border rounded px-2 py-2 text-sm"
+              className="w-full border rounded px-3 py-2 text-sm"
             >
               {Object.keys(CARD_PRESETS).map((k) => (
                 <option key={k} value={k}>
@@ -631,170 +688,193 @@ export default function IDCardEditor() {
               ))}
               <option value="Custom">Custom</option>
             </select>
-
-            <div className="mt-4">
-              <div className="font-medium text-sm mb-2">Dimension</div>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="text-xs opacity-70">Width</label>
-                  <input
-                    type="number"
-                    value={dims[area].width}
-                    disabled={!isCustom}
-                    onChange={(e) =>
-                      setDims((prev) => ({
-                        ...prev,
-                        [area]: {
-                          ...prev[area],
-                          width: Number(e.target.value),
-                        },
-                      }))
-                    }
-                    className="w-full border rounded px-2 py-1 text-xs"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs opacity-70">Height</label>
-                  <input
-                    type="number"
-                    value={dims[area].height}
-                    disabled={!isCustom}
-                    onChange={(e) =>
-                      setDims((prev) => ({
-                        ...prev,
-                        [area]: {
-                          ...prev[area],
-                          height: Number(e.target.value),
-                        },
-                      }))
-                    }
-                    className="w-full border rounded px-2 py-1 text-xs"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Photo Position */}
-            {isPhotoArea && (
-              <div className="mt-4">
-                <div className="text-xs opacity-70 mb-1">
-                  Adjust Photo Position
-                </div>
-                <label className="text-xs opacity-70">From Left</label>
-                <input
-                  type="range"
-                  min={0}
-                  max={dims.Front.width - dims.Photo.width}
-                  value={previewAdjust.Photo.x}
-                  onChange={(e) =>
-                    setPreviewAdjust((prev) => ({
-                      ...prev,
-                      Photo: { ...prev.Photo, x: Number(e.target.value) },
-                    }))
-                  }
-                  className="w-full mb-2"
-                />
-                <label className="text-xs opacity-70">From Top</label>
-                <input
-                  type="range"
-                  min={0}
-                  max={dims.Front.height - dims.Photo.height}
-                  value={previewAdjust.Photo.y}
-                  onChange={(e) =>
-                    setPreviewAdjust((prev) => ({
-                      ...prev,
-                      Photo: { ...prev.Photo, y: Number(e.target.value) },
-                    }))
-                  }
-                  className="w-full"
-                />
-              </div>
-            )}
-
-            {/* Filters */}
-            <div className="mt-4 space-y-2">
-              <div className="text-xs opacity-70">Filters</div>
-              {["brightness", "contrast", "saturation", "shadows"].map((f) => (
-                <div key={f}>
-                  <label className="text-xs opacity-70 capitalize">{f}</label>
-                  <input
-                    type="range"
-                    min={-100}
-                    max={100}
-                    value={previewAdjust[area].filters[f]}
-                    onChange={(e) =>
-                      setPreviewAdjust((prev) => ({
-                        ...prev,
-                        [area]: {
-                          ...prev[area],
-                          filters: {
-                            ...prev[area].filters,
-                            [f]: Number(e.target.value),
-                          },
-                        },
-                      }))
-                    }
-                    className="w-full"
-                  />
-                </div>
-              ))}
-            </div>
-
-            <button
-              className="mt-4 w-full px-4 py-2 bg-black text-white rounded-lg"
-              onClick={doUpdate}
-            >
-              Apply Crop
-            </button>
-            <button
-              disabled={!imageSrc}
-              className="mt-2 w-full px-4 py-2 border rounded-lg"
-              onClick={handleDownload}
-            >
-              Download PDF
-            </button>
           </div>
+
+          {/* Dimension Inputs */}
+          <div>
+            <div className="font-medium text-sm mb-2">Dimensions</div>
+            <div className="grid grid-cols-2 gap-2">
+              <input
+                type="number"
+                value={dims[area].width}
+                disabled={!isCustom}
+                onChange={(e) =>
+                  setDims((prev) => ({
+                    ...prev,
+                    [area]: { ...prev[area], width: Number(e.target.value) },
+                  }))
+                }
+                className="border rounded px-2 py-1 text-xs"
+                placeholder="Width"
+              />
+              <input
+                type="number"
+                value={dims[area].height}
+                disabled={!isCustom}
+                onChange={(e) =>
+                  setDims((prev) => ({
+                    ...prev,
+                    [area]: { ...prev[area], height: Number(e.target.value) },
+                  }))
+                }
+                className="border rounded px-2 py-1 text-xs"
+                placeholder="Height"
+              />
+            </div>
+          </div>
+
+          {/* Photo Position Sliders */}
+          {isPhotoArea && (
+            <div>
+              <h4 className="text-xs font-semibold mb-1">
+                Adjust Photo Position
+              </h4>
+              <label className="text-xs text-gray-500">From Left</label>
+              <input
+                type="range"
+                min={0}
+                max={dims.Front.width - dims.Photo.width}
+                value={previewAdjust.Photo.x}
+                onChange={(e) =>
+                  setPreviewAdjust((prev) => ({
+                    ...prev,
+                    Photo: { ...prev.Photo, x: Number(e.target.value) },
+                  }))
+                }
+                className="w-full accent-blue-600 mb-2"
+              />
+              <label className="text-xs text-gray-500">From Top</label>
+              <input
+                type="range"
+                min={0}
+                max={dims.Front.height - dims.Photo.height}
+                value={previewAdjust.Photo.y}
+                onChange={(e) =>
+                  setPreviewAdjust((prev) => ({
+                    ...prev,
+                    Photo: { ...prev.Photo, y: Number(e.target.value) },
+                  }))
+                }
+                className="w-full accent-blue-600"
+              />
+            </div>
+          )}
+
+          {/* Filters */}
+          <div>
+            <h4 className="text-xs font-semibold mb-2">Filters</h4>
+            {["brightness", "contrast", "saturation", "shadows"].map((f) => (
+              <div key={f} className="mb-2">
+                <label className="text-xs capitalize text-gray-500">{f}</label>
+                <input
+                  type="range"
+                  min={-100}
+                  max={100}
+                  value={previewAdjust[area].filters[f]}
+                  onChange={(e) =>
+                    setPreviewAdjust((prev) => ({
+                      ...prev,
+                      [area]: {
+                        ...prev[area],
+                        filters: {
+                          ...prev[area].filters,
+                          [f]: Number(e.target.value),
+                        },
+                      },
+                    }))
+                  }
+                  className={`w-full accent-blue-600 ${
+                    !outputs[area] ? "cursor-not-allowed opacity-50" : ""
+                  }`}
+                  disabled={!outputs[area]}
+                />
+              </div>
+            ))}
+          </div>
+
+          {/* Buttons */}
+          <button
+            onClick={doUpdate}
+            className="w-full px-4 py-2 !bg-black text-white rounded-lg hover:bg-gray-800"
+          >
+            Apply Crop
+          </button>
+          <button
+            disabled={!outputs.Front && !outputs.Back}
+            onClick={handleDownload}
+            className={`w-full px-4 py-2 rounded-lg text-white 
+    ${
+      outputs.Front || outputs.Back
+        ? "!bg-black hover:bg-gray-700"
+        : "!bg-gray-400 text-gray-200 cursor-not-allowed pointer-events-none"
+    }`}
+          >
+            Download PDF
+          </button>
+          <button
+  onClick={handleAutoEnhance}
+  disabled={!outputs[area]}
+  className={`w-full px-4 py-2 mb-2 rounded-lg text-white ${
+    outputs[area]
+      ? "!bg-green-600 hover:bg-green-700"
+      : "!bg-gray-400 text-gray-200 cursor-not-allowed"
+  }`}
+>
+  Auto Enhance
+</button>
         </aside>
+
       </div>
 
-      {/* Confirm Download */}
+      {/* Modals and Loader */}
       {showConfirmPopup && (
         <div className="fixed inset-0 flex items-center justify-center bg-black/50">
-          <div className="bg-white rounded p-6 space-y-4">
-            <p>₹10 will be deducted from your wallet. Continue?</p>
+          <div className="bg-white rounded-lg p-6 shadow-lg space-y-4 max-w-sm w-full">
+            <p className="text-gray-700">
+              ₹10 will be deducted from your wallet. Continue?
+            </p>
             <div className="flex gap-2 justify-end">
               <button
-                className="px-3 py-1 rounded bg-gray-300"
                 onClick={() => setShowConfirmPopup(false)}
+                className="px-4 py-2 !bg-gray-200 rounded hover:bg-gray-300"
               >
                 Cancel
               </button>
               <button
-                className="px-3 py-1 rounded bg-black text-white"
+                disabled={isDownloading}
                 onClick={confirmDownload}
+               className={`!bg-blue-600 text-white px-4 py-2 rounded flex items-center gap-2 ${
+            isDownloading ? "opacity-50 cursor-not-allowed" : ""
+          }`}
               >
-                Yes
+                {isDownloading ? (
+            <>
+              <span className="loader border-2 border-white border-t-transparent rounded-full w-4 h-4 animate-spin"></span>
+              Processing...
+            </>
+          ) : (
+            "Yes"
+          )}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Insufficient Balance */}
       {showInsufficientPopup && (
         <div className="fixed inset-0 flex items-center justify-center bg-black/50">
-          <div className="bg-white rounded p-6 space-y-4">
-            <p>Insufficient balance. Recharge now!</p>
+          <div className="bg-white rounded-lg p-6 shadow-lg space-y-4 max-w-sm w-full">
+            <p className="text-gray-700">Insufficient balance. Recharge now!</p>
             <div className="flex gap-2 justify-end">
               <button
-                className="px-3 py-1 rounded bg-gray-300"
                 onClick={() => setShowInsufficientPopup(false)}
+                className="px-4 py-2 !bg-gray-200 rounded hover:bg-gray-300"
               >
                 Close
               </button>
               <button
-                className="px-3 py-1 rounded bg-black text-white"
                 onClick={() => (window.location.href = "/recharge")}
+                className="px-4 py-2 !bg-black text-white rounded hover:bg-gray-800"
               >
                 Recharge
               </button>
@@ -803,10 +883,9 @@ export default function IDCardEditor() {
         </div>
       )}
 
-      {/* ✅ Password Modal */}
       {showPasswordModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center">
-          <div className="bg-white rounded-lg p-6 w-96">
+          <div className="bg-white rounded-lg p-6 w-96 shadow-lg">
             <h2 className="text-lg font-semibold mb-4">Enter PDF Password</h2>
             <input
               type="password"
@@ -822,13 +901,13 @@ export default function IDCardEditor() {
                   setPdfPassword("");
                   setPendingPDF(null);
                 }}
-                className="px-4 py-2 bg-gray-300 rounded"
+                className="px-4 py-2 !bg-gray-200 rounded hover:bg-gray-300"
               >
                 Cancel
               </button>
               <button
                 onClick={unlockPDF}
-                className="px-4 py-2 bg-blue-600 text-white rounded"
+                className="px-4 py-2 !bg-blue-600 text-white rounded hover:bg-blue-700"
               >
                 Unlock
               </button>
@@ -837,10 +916,11 @@ export default function IDCardEditor() {
         </div>
       )}
 
-      {/* optional simple loader */}
       {loadingPDF && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center">
-          <div className="bg-white p-4 rounded-lg">Loading PDF...</div>
+          <div className="bg-white p-4 rounded-lg shadow-lg">
+            Loading PDF...
+          </div>
         </div>
       )}
     </div>
