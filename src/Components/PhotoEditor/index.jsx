@@ -12,6 +12,7 @@ import { useWallet } from "../../contexts/WalletContext";
 import { deductWallet } from "../../api/auth";
 import { toast } from "react-hot-toast";
 import pdfjsWorker from "pdfjs-dist/build/pdf.worker?url";
+import { jwtDecode } from "jwt-decode";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
 
@@ -394,17 +395,31 @@ export default function IDCardEditor() {
 
     pdf.save("high-resolution-id-card.pdf");
   }, [outputs, layout, dims, previewAdjust]);
-
+ const token = localStorage.getItem("token");
+  let role = null;
+  if (token) {
+    const decoded = jwtDecode(token);
+    role = decoded.role;
+  }
+  console.log(role, 8989);
   const [isDownloading, setIsDownloading] = useState(false);
   // Old style logic (kept as requested)
-  const handleDownload = () => {
-    const cost = 10;
-    if (balance >= cost) {
-      setShowConfirmPopup(true);
-    } else {
-      setShowInsufficientPopup(true);
-    }
-  };
+const handleDownload = () => {
+  const cost = 10;
+
+  // ✅ If admin, skip wallet balance check
+  if (role === "admin") {
+    setShowConfirmPopup(true);
+    return;
+  }
+
+  // ✅ For normal users, check balance
+  if (balance >= cost) {
+    setShowConfirmPopup(true);
+  } else {
+    setShowInsufficientPopup(true);
+  }
+};
   const confirmDownload = async () => {
     setIsDownloading(true);
     const cost = 10;
