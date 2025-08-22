@@ -423,7 +423,7 @@ const handleDownload = () => {
   const confirmDownload = async () => {
     setIsDownloading(true);
     const cost = 10;
-    const success = await deductWallet(cost);
+    const success = await deductWallet("ID Card");
     if (success) {
       toast.success(`₹${cost} deducted from wallet`);
       downloadPDF();
@@ -575,7 +575,7 @@ const handleDownload = () => {
                     image={imageSrc}
                     crop={crop}
                     zoom={zoom}
-                     aspect={dims.Photo.width / dims.Photo.height} 
+                     aspect={aspect} 
                     onCropChange={setCrop}
                     onZoomChange={setZoom}
                     onCropComplete={onCropComplete}

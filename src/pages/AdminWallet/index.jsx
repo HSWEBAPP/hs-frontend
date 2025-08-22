@@ -58,7 +58,7 @@ export default function ManageRecharge() {
   // Pagination logic
   const indexOfLastRow = currentPage * rowsPerPage;
   const indexOfFirstRow = indexOfLastRow - rowsPerPage;
-  const currentRows = requests.slice(indexOfFirstRow, indexOfLastRow);
+  const currentRows = requests?.slice(indexOfFirstRow, indexOfLastRow);
   const totalPages = Math.ceil(requests.length / rowsPerPage);
 
   return (
