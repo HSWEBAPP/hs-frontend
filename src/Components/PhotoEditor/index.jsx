@@ -5,7 +5,8 @@ import React, {
   useRef,
   useState,
 } from "react";
-import Cropper from "react-easy-crop";
+import { Cropper, RectangleStencil } from "react-advanced-cropper";
+import "react-advanced-cropper/dist/style.css";
 import { jsPDF } from "jspdf";
 import * as pdfjsLib from "pdfjs-dist";
 import { useWallet } from "../../contexts/WalletContext";
@@ -66,41 +67,20 @@ async function pdfFirstPageToDataURL(file, scale = 1, password) {
   return canvas.toDataURL("image/png", 1);
 }
 
-async function getCroppedDataURL(imageSrc, cropPixels, outSize, filters) {
+async function applyGammaFilterToDataURL(src, gamma) {
+  if (!src) return null;
   const image = await new Promise((res, rej) => {
     const img = new Image();
     img.crossOrigin = "anonymous";
     img.onload = () => res(img);
     img.onerror = rej;
-    img.src = imageSrc;
+    img.src = src;
   });
-
   const canvas = document.createElement("canvas");
   const ctx = canvas.getContext("2d");
-  canvas.width = outSize.width;
-  canvas.height = outSize.height;
-
-  const b = clamp(100 + filters.brightness * 0.5, 0, 200);
-  const c = clamp(100 + filters.contrast * 0.5, 0, 200);
-  const s = clamp(100 + filters.saturation, 0, 200);
-  const gamma = clamp(1 + filters.shadows / 100, 0.1, 5);
-
-  ctx.filter = `brightness(${b}%) contrast(${c}%) saturate(${s}%)`;
-  ctx.imageSmoothingEnabled = true;
-  ctx.imageSmoothingQuality = "high";
-
-  ctx.drawImage(
-    image,
-    cropPixels.x,
-    cropPixels.y,
-    cropPixels.width,
-    cropPixels.height,
-    0,
-    0,
-    outSize.width,
-    outSize.height
-  );
-
+  canvas.width = image.width;
+  canvas.height = image.height;
+  ctx.drawImage(image, 0, 0);
   if (Math.abs(gamma - 1) > 0.01) {
     const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     const d = imgData.data;
@@ -112,7 +92,6 @@ async function getCroppedDataURL(imageSrc, cropPixels, outSize, filters) {
     }
     ctx.putImageData(imgData, 0, 0);
   }
-
   return canvas.toDataURL("image/png", 1);
 }
 
@@ -123,6 +102,7 @@ export default function IDCardEditor() {
   const [isCustom, setIsCustom] = useState(false);
   const [editingEnabled, setEditingEnabled] = useState(false);
   const [photoUploaded, setPhotoUploaded] = useState(false);
+
   const [previewAdjust, setPreviewAdjust] = useState({
     Photo: {
       x: 0,
@@ -140,19 +120,20 @@ export default function IDCardEditor() {
       filters: { brightness: 0, contrast: 0, saturation: 0, shadows: 0 },
     },
   });
+
   const [dims, setDims] = useState({
     Photo: CARD_PRESETS["Govt ID 1"].Photo,
     Front: CARD_PRESETS["Govt ID 1"].Front,
     Back: CARD_PRESETS["Govt ID 1"].Back,
   });
+
   const [outputs, setOutputs] = useState({
     Photo: null,
     Front: null,
     Back: null,
   });
-  const [crop, setCrop] = useState({ x: 0, y: 0 });
+
   const [zoom, setZoom] = useState(1);
-  const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
   const [layout, setLayout] = useState("lr");
   const [showConfirmPopup, setShowConfirmPopup] = useState(false);
   const [showInsufficientPopup, setShowInsufficientPopup] = useState(false);
@@ -162,8 +143,12 @@ export default function IDCardEditor() {
   const [pdfPassword, setPdfPassword] = useState("");
   const [pendingPDF, setPendingPDF] = useState(null);
   const [loadingPDF, setLoadingPDF] = useState(false);
-
+  const [customWidth, setCustomWidth] = useState(50);
+  const [customHeight, setCustomHeight] = useState(50);
+  const cropperRef = useRef(null);
+  const dpi = 300;
   const fileInputRef = useRef(null);
+
   const { balance, fetchBalance } = useWallet();
 
   useEffect(() => {
@@ -178,13 +163,8 @@ export default function IDCardEditor() {
   }, [selectedType]);
 
   const aspect = useMemo(
-    () => dims[area].width / dims[area].height,
-    [dims, area]
-  );
-
-  const onCropComplete = useCallback(
-    (_, areaPixels) => setCroppedAreaPixels(areaPixels),
-    []
+    () => (isCustom ? null : dims[area].width / dims[area].height),
+    [dims, area, isCustom]
   );
 
   const handleFile = async (file) => {
@@ -195,7 +175,6 @@ export default function IDCardEditor() {
     if (!isPDF) {
       const src = await readFileAsDataURL(file);
       setImageSrc(src);
-      setCrop({ x: 0, y: 0 });
       setZoom(1);
       setEditingEnabled(true);
       setPhotoUploaded(true);
@@ -207,7 +186,6 @@ export default function IDCardEditor() {
       setLoadingPDF(true);
       const src = await pdfFirstPageToDataURL(file); // no password
       setImageSrc(src);
-      setCrop({ x: 0, y: 0 });
       setZoom(1);
       setEditingEnabled(true);
       setPhotoUploaded(true);
@@ -235,7 +213,6 @@ export default function IDCardEditor() {
       setLoadingPDF(true);
       const src = await pdfFirstPageToDataURL(pendingPDF, 1, pdfPassword);
       setImageSrc(src);
-      setCrop({ x: 0, y: 0 });
       setZoom(1);
       setEditingEnabled(true);
       setPhotoUploaded(true);
@@ -259,16 +236,30 @@ export default function IDCardEditor() {
   };
 
   const doUpdate = useCallback(async () => {
-    if (!imageSrc || !croppedAreaPixels) return;
+    if (!imageSrc) return;
     const outSize = OUTPUT_SIZES[area];
-    const dataUrl = await getCroppedDataURL(
-      imageSrc,
-      croppedAreaPixels,
-      outSize,
-      previewAdjust[area].filters
-    );
+
+    // Export from cropper at exact output size
+    const canvas = cropperRef.current?.getCanvas({
+      width: outSize.width,
+      height: outSize.height,
+      fillColor: "transparent",
+    });
+
+    if (!canvas) {
+      toast.error("Make a crop selection first.");
+      return;
+    }
+
+    // Apply only gamma (shadows) in pixels here; CSS filters are preview-only
+    const gamma = clamp(1 + previewAdjust[area].filters.shadows / 100, 0.1, 5);
+    let dataUrl = canvas.toDataURL("image/png", 1);
+    if (Math.abs(gamma - 1) > 0.01) {
+      dataUrl = await applyGammaFilterToDataURL(dataUrl, gamma);
+    }
+
     setOutputs((o) => ({ ...o, [area]: dataUrl }));
-  }, [imageSrc, croppedAreaPixels, area, previewAdjust]);
+  }, [imageSrc, area, previewAdjust]);
 
   const downloadPDF = useCallback(async () => {
     const pdf = new jsPDF({
@@ -395,38 +386,42 @@ export default function IDCardEditor() {
 
     pdf.save("high-resolution-id-card.pdf");
   }, [outputs, layout, dims, previewAdjust]);
- const token = localStorage.getItem("token");
+
+  // --- wallet & role ---
+  const token = localStorage.getItem("token");
   let role = null;
   if (token) {
-    const decoded = jwtDecode(token);
-    role = decoded.role;
+    try {
+      const decoded = jwtDecode(token);
+      role = decoded.role;
+    } catch {}
   }
-  console.log(role, 8989);
   const [isDownloading, setIsDownloading] = useState(false);
-  // Old style logic (kept as requested)
-const handleDownload = () => {
-  const cost = 10;
 
-  // ✅ If admin, skip wallet balance check
-  if (role === "admin") {
-    setShowConfirmPopup(true);
-    return;
-  }
+  const handleDownload = () => {
+    const cost = 10;
 
-  // ✅ For normal users, check balance
-  if (balance >= cost) {
-    setShowConfirmPopup(true);
-  } else {
-    setShowInsufficientPopup(true);
-  }
-};
+    // ✅ If admin, skip wallet balance check
+    if (role === "admin") {
+      setShowConfirmPopup(true);
+      return;
+    }
+
+    // ✅ For normal users, check balance
+    if (balance >= cost) {
+      setShowConfirmPopup(true);
+    } else {
+      setShowInsufficientPopup(true);
+    }
+  };
+
   const confirmDownload = async () => {
     setIsDownloading(true);
     const cost = 10;
     const success = await deductWallet("ID Card");
     if (success) {
       toast.success(`₹${cost} deducted from wallet`);
-      downloadPDF();
+      await downloadPDF();
       setShowConfirmPopup(false);
       fetchBalance();
       setIsDownloading(false);
@@ -467,6 +462,42 @@ const handleDownload = () => {
     toast.success("Auto enhancement applied!");
   };
 
+  const onOpenFileClick = () => fileInputRef.current?.click();
+
+  const onFileInputChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    await handleFile(file);
+  };
+  const getAspectRatio = (option) => {
+    switch (option) {
+      case "Govt ID 1":
+        return 1.42; // Example: 85.6mm / 60.96mm (Credit Card size)
+      case "Govt ID 2":
+        return 1.59; // Example for another preset
+      default:
+        return undefined; // For custom
+    }
+  };
+
+  const fixedAspectRatio = getAspectRatio(selectedType);
+  console.log(cropperRef, 65678);
+
+
+
+const handleZoomChange = (e) => {
+  const newZoom = Number(e.target.value);
+  if (!cropperRef.current) return;
+
+  // Calculate relative scale ratio
+  const scaleRatio = newZoom / zoom;
+
+  cropperRef.current.zoomImage(scaleRatio); // ✅ correct method
+
+  setZoom(newZoom);
+};
+
+
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900">
       <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-6">
@@ -482,7 +513,6 @@ const handleDownload = () => {
                   setOutputs({ Photo: null, Front: null, Back: null });
                   setEditingEnabled(false);
                   setPhotoUploaded(false);
-                  setCroppedAreaPixels(null);
                   setPreviewAdjust({
                     Photo: {
                       x: 0,
@@ -515,7 +545,6 @@ const handleDownload = () => {
                       },
                     },
                   });
-                  setCrop({ x: 0, y: 0 });
                   setZoom(1);
                   if (fileInputRef.current) fileInputRef.current.value = "";
                 }}
@@ -524,6 +553,7 @@ const handleDownload = () => {
                 Clear
               </button>
             </div>
+
             {editingEnabled && (
               <div className="mt-4">
                 <div className="flex justify-between text-xs mb-1 text-gray-500">
@@ -532,22 +562,23 @@ const handleDownload = () => {
                 </div>
                 <input
                   type="range"
-                  min={1}
+                  min={0.5}
                   max={3}
-                  step={0.01}
+                  step={0.1}
                   value={zoom}
-                  onChange={(e) => setZoom(Number(e.target.value))}
+                  onChange={handleZoomChange}
                   className="w-full accent-blue-600"
                 />
               </div>
             )}
+
             {!imageSrc ? (
               <div className="border-2 border-dashed rounded-xl p-8 text-center bg-gray-50">
                 <p className="text-sm mb-4 text-gray-500">
                   Open a PDF or Image to create ID Card
                 </p>
                 <button
-                  onClick={() => fileInputRef.current?.click()}
+                  onClick={onOpenFileClick}
                   className="px-6 py-2 rounded-lg !bg-blue-600 text-white font-medium hover:bg-blue-700"
                 >
                   Open a New File
@@ -557,9 +588,7 @@ const handleDownload = () => {
                   type="file"
                   accept="image/*,application/pdf"
                   className="hidden"
-                  onChange={async (e) =>
-                    e.target.files?.[0] && (await handleFile(e.target.files[0]))
-                  }
+                  onChange={onFileInputChange}
                 />
               </div>
             ) : (
@@ -572,15 +601,23 @@ const handleDownload = () => {
                   />
                 ) : (
                   <Cropper
-                    image={imageSrc}
-                    crop={crop}
-                    zoom={zoom}
-                     aspect={aspect} 
-                    onCropChange={setCrop}
-                    onZoomChange={setZoom}
-                    onCropComplete={onCropComplete}
-                    showGrid={false}
-                    restrictPosition={false}
+                    ref={cropperRef}
+                    src={imageSrc}
+                    className="w-full h-full"
+                    imageRestriction="none"
+                    stencilProps={{
+                      aspectRatio: isCustom ? undefined : fixedAspectRatio,
+                      movable: isCustom,
+                      resizable: isCustom,
+                    }}
+                    onChange={({ coordinates }) => {
+                      if (isCustom) {
+                        const widthMM = (coordinates.width * 25.4) / dpi;
+                        const heightMM = (coordinates.height * 25.4) / dpi;
+                        setCustomWidth(parseFloat(widthMM.toFixed(2)));
+                        setCustomHeight(parseFloat(heightMM.toFixed(2)));
+                      }
+                    }}
                   />
                 )}
               </div>
@@ -747,34 +784,61 @@ const handleDownload = () => {
           {/* Dimension Inputs */}
           <div>
             <div className="font-medium text-sm mb-2">Dimensions</div>
-            <div className="grid grid-cols-2 gap-2">
-              <input
-                type="number"
-                value={dims[area].width}
-                disabled={!isCustom}
-                onChange={(e) =>
-                  setDims((prev) => ({
-                    ...prev,
-                    [area]: { ...prev[area], width: Number(e.target.value) },
-                  }))
-                }
-                className="border rounded px-2 py-1 text-xs"
-                placeholder="Width"
-              />
-              <input
-                type="number"
-                value={dims[area].height}
-                disabled={!isCustom}
-                onChange={(e) =>
-                  setDims((prev) => ({
-                    ...prev,
-                    [area]: { ...prev[area], height: Number(e.target.value) },
-                  }))
-                }
-                className="border rounded px-2 py-1 text-xs"
-                placeholder="Height"
-              />
-            </div>
+            {isCustom ? (
+              <div className="grid grid-cols-2 gap-2">
+                <input
+                  type="number"
+                  value={customWidth}
+                  onChange={(e) => {
+                    const value = parseFloat(e.target.value) || 0;
+                    setCustomWidth(value);
+                    const widthPx = (value * dpi) / 25.4;
+                    const heightPx = (customHeight * dpi) / 25.4;
+                    cropperRef.current?.setCoordinates({
+                      width: widthPx,
+                      height: heightPx,
+                    });
+                  }}
+                  className="border rounded px-2 py-1 text-xs"
+                  placeholder="Width (mm)"
+                />
+                <input
+                  type="number"
+                  value={customHeight}
+                  onChange={(e) => {
+                    const value = parseFloat(e.target.value) || 0;
+                    setCustomHeight(value);
+                    if (cropperRef.current) {
+                      const widthPx = (customWidth * dpi) / 25.4;
+                      const heightPx = (customHeight * dpi) / 25.4;
+                      cropperRef.current.setCoordinates({
+                        width: widthPx,
+                        height: heightPx,
+                      });
+                    }
+                  }}
+                  className="border rounded px-2 py-1 text-xs"
+                  placeholder="Height (mm)"
+                />
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-2">
+                <input
+                  type="number"
+                  value={dims[area].width}
+                  disabled
+                  className="border rounded px-2 py-1 text-xs"
+                  placeholder="Width"
+                />
+                <input
+                  type="number"
+                  value={dims[area].height}
+                  disabled
+                  className="border rounded px-2 py-1 text-xs"
+                  placeholder="Height"
+                />
+              </div>
+            )}
           </div>
 
           {/* Photo Position Sliders */}
@@ -878,6 +942,7 @@ const handleDownload = () => {
           </button>
         </aside>
       </div>
+
       {/* Modals and Loader */}
       {showConfirmPopup && (
         <div className="fixed inset-0 flex items-center justify-center bg-black/50">
