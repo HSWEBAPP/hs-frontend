@@ -103,7 +103,6 @@ export default function IDCardEditor() {
   const [editingEnabled, setEditingEnabled] = useState(false);
   const [photoUploaded, setPhotoUploaded] = useState(false);
 
-
   const [previewAdjust, setPreviewAdjust] = useState({
     Photo: {
       x: 0,
@@ -133,8 +132,8 @@ export default function IDCardEditor() {
     Front: null,
     Back: null,
   });
-const [photoWidth, setPhotoWidth] = useState(dims.Photo.width);
-const [photoHeight, setPhotoHeight] = useState(dims.Photo.height);
+  const [photoWidth, setPhotoWidth] = useState(dims.Photo.width);
+  const [photoHeight, setPhotoHeight] = useState(dims.Photo.height);
   const [zoom, setZoom] = useState(1);
   const [layout, setLayout] = useState("lr");
   const [showConfirmPopup, setShowConfirmPopup] = useState(false);
@@ -147,7 +146,7 @@ const [photoHeight, setPhotoHeight] = useState(dims.Photo.height);
   const [loadingPDF, setLoadingPDF] = useState(false);
   const [customWidth, setCustomWidth] = useState(0);
   const [customHeight, setCustomHeight] = useState(0);
-  
+
   const cropperRef = useRef(null);
   const dpi = 300;
   const fileInputRef = useRef(null);
@@ -179,10 +178,7 @@ const [photoHeight, setPhotoHeight] = useState(dims.Photo.height);
     }
   }, [selectedType, area]);
 
-  const aspect = useMemo(
-    () => (isCustom ? null : dims[area].width / dims[area].height),
-    [dims, area, isCustom]
-  );
+
 
   const handleFile = async (file) => {
     const isPDF =
@@ -520,8 +516,8 @@ const [photoHeight, setPhotoHeight] = useState(dims.Photo.height);
   };
   const containerWidth = 300; // maxWidth or parent width in px
   const scaleFactor = containerWidth / dims.Back.width;
-  const selectedPhotoWidth = isCustom ? customWidth : dims.Photo.width;
-  const selectedPhotoHeight = isCustom ? customHeight : dims.Photo.height;
+  const photoMaxX = (dims.Front.width - dims.Photo.width) * scaleFactor;
+  const photoMaxY = (dims.Front.height - dims.Photo.height) * scaleFactor;
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900">
@@ -686,7 +682,7 @@ const [photoHeight, setPhotoHeight] = useState(dims.Photo.height);
                   style={{
                     width: "100%", // Fit container width
                     aspectRatio: dims.Front.width / dims.Front.height, // maintain ratio
-                    maxWidth: "300px", // optional max width
+                    // optional max width
                   }}
                 >
                   {outputs.Front && (
@@ -713,12 +709,10 @@ const [photoHeight, setPhotoHeight] = useState(dims.Photo.height);
                       alt="Photo"
                       className="absolute object-contain"
                       style={{
-                    width: `${photoWidth}px`,
-height: `${photoHeight}px`,
-
-
-                        left: `${previewAdjust.Photo.x * scaleFactor}px`,
-                        top: `${previewAdjust.Photo.y * scaleFactor}px`,
+                        width: `${photoWidth}px`,
+                        height: `${photoHeight}px`,
+                        left: `${previewAdjust.Photo.x}px`,
+                        top: `${previewAdjust.Photo.y}px`,
                         filter: `brightness(${
                           100 + previewAdjust.Photo.filters.brightness
                         }%) contrast(${
@@ -740,7 +734,7 @@ height: `${photoHeight}px`,
                   style={{
                     width: "100%", // responsive
                     aspectRatio: dims.Back.width / dims.Back.height, // keep correct ratio
-                    maxWidth: "300px", // optional for sidebar
+                    // optional for sidebar
                   }}
                 >
                   {outputs.Back && (
@@ -817,7 +811,9 @@ height: `${photoHeight}px`,
             <label className="block text-xs mb-1">Select Card Type</label>
             <select
               value={selectedType}
-              onChange={(e) => {setSelectedType(e.target.value);}}
+              onChange={(e) => {
+                setSelectedType(e.target.value);
+              }}
               className="w-full border rounded px-3 py-2 text-sm"
             >
               {Object.keys(CARD_PRESETS).map((k) => (
@@ -830,7 +826,6 @@ height: `${photoHeight}px`,
           </div>
 
           {/* Dimension Inputs */}
-          {/* Dimension Inputs */}
           <div>
             <div className="font-medium text-sm mb-2">Dimensions</div>
             {isCustom ? (
@@ -842,7 +837,7 @@ height: `${photoHeight}px`,
                   onChange={(e) => {
                     const value = parseFloat(e.target.value) || 0;
                     setCustomWidth(value);
-                     setPhotoWidth(value);
+                    setPhotoWidth(value);
 
                     if (cropperRef.current) {
                       const widthPx = (value * dpi) / 25.4;
@@ -864,7 +859,7 @@ height: `${photoHeight}px`,
                   onChange={(e) => {
                     const value = parseFloat(e.target.value) || 0;
                     setCustomHeight(value);
-                     setPhotoHeight(value);
+                    setPhotoHeight(value);
 
                     if (cropperRef.current) {
                       const widthPx = (customWidth * dpi) / 25.4;
@@ -909,7 +904,7 @@ height: `${photoHeight}px`,
               <input
                 type="range"
                 min={0}
-                max={dims.Front.width - dims.Photo.width}
+                max={photoMaxX}
                 value={previewAdjust.Photo.x}
                 onChange={(e) =>
                   setPreviewAdjust((prev) => ({
@@ -923,7 +918,7 @@ height: `${photoHeight}px`,
               <input
                 type="range"
                 min={0}
-                max={dims.Front.height - dims.Photo.height}
+                max={photoMaxY}
                 value={previewAdjust.Photo.y}
                 onChange={(e) =>
                   setPreviewAdjust((prev) => ({
