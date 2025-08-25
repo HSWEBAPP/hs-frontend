@@ -44,6 +44,10 @@ h1 {
 .custom-filter-sidebar div .react-datepicker-wrapper {
   width: 100%;
 }
+.custom-wrapper .advanced-cropper-boundary__stretcher {
+  width: 100% !important;
+  height: 100% !important;
+}
 button {
   border-radius: 8px;
   border: 1px solid transparent;
