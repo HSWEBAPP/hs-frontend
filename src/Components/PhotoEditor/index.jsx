@@ -103,6 +103,7 @@ export default function IDCardEditor() {
   const [editingEnabled, setEditingEnabled] = useState(false);
   const [photoUploaded, setPhotoUploaded] = useState(false);
 
+
   const [previewAdjust, setPreviewAdjust] = useState({
     Photo: {
       x: 0,
@@ -132,7 +133,8 @@ export default function IDCardEditor() {
     Front: null,
     Back: null,
   });
-
+const [photoWidth, setPhotoWidth] = useState(dims.Photo.width);
+const [photoHeight, setPhotoHeight] = useState(dims.Photo.height);
   const [zoom, setZoom] = useState(1);
   const [layout, setLayout] = useState("lr");
   const [showConfirmPopup, setShowConfirmPopup] = useState(false);
@@ -143,8 +145,9 @@ export default function IDCardEditor() {
   const [pdfPassword, setPdfPassword] = useState("");
   const [pendingPDF, setPendingPDF] = useState(null);
   const [loadingPDF, setLoadingPDF] = useState(false);
-  const [customWidth, setCustomWidth] = useState(50);
-  const [customHeight, setCustomHeight] = useState(50);
+  const [customWidth, setCustomWidth] = useState(0);
+  const [customHeight, setCustomHeight] = useState(0);
+  
   const cropperRef = useRef(null);
   const dpi = 300;
   const fileInputRef = useRef(null);
@@ -274,134 +277,139 @@ export default function IDCardEditor() {
 
     setOutputs((o) => ({ ...o, [area]: dataUrl }));
   }, [imageSrc, area, previewAdjust]);
+  const downloadPDF = useCallback(async () => {
+    const pdf = new jsPDF({
+      orientation: "portrait",
+      unit: "px",
+      format: [dims.Photo.width, dims.Photo.height],
+    });
 
-const downloadPDF = useCallback(async () => {
-  const pdf = new jsPDF({
-    orientation: "portrait",
-    unit: "px",
-    format:  [dims.Photo.width, dims.Photo.height],
-  });
+    const m = 24;
+    const pdfWidth = pdf.internal.pageSize.getWidth();
+    const pdfHeight = pdf.internal.pageSize.getHeight();
 
-  const m = 24;
-  const pdfWidth = pdf.internal.pageSize.getWidth();
-  const pdfHeight = pdf.internal.pageSize.getHeight();
+    const renderHighResImage = async (src, width, height, filters) => {
+      const img = new Image();
+      img.src = src;
+      await new Promise((resolve) => (img.onload = resolve));
 
-  const renderHighResImage = async (src, width, height, filters) => {
-    const img = new Image();
-    img.src = src;
-    await new Promise((resolve) => (img.onload = resolve));
+      const scale = 4; // Higher for quality
+      const canvas = document.createElement("canvas");
+      canvas.width = width * scale;
+      canvas.height = height * scale;
+      const ctx = canvas.getContext("2d");
 
-    const scale = 4; // Higher for quality
-    const canvas = document.createElement("canvas");
-    canvas.width = width * scale;
-    canvas.height = height * scale;
-    const ctx = canvas.getContext("2d");
+      const b = clamp(100 + filters.brightness * 0.5, 0, 200);
+      const c = clamp(100 + filters.contrast * 0.5, 0, 200);
+      const s = clamp(100 + filters.saturation, 0, 200);
+      const gamma = clamp(1 + filters.shadows / 50, 0.1, 5);
 
-    const b = clamp(100 + filters.brightness * 0.5, 0, 200);
-    const c = clamp(100 + filters.contrast * 0.5, 0, 200);
-    const s = clamp(100 + filters.saturation, 0, 200);
-    const gamma = clamp(1 + filters.shadows / 50, 0.1, 5);
+      ctx.filter = `brightness(${b}%) contrast(${c}%) saturate(${s}%)`;
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = "high";
 
-    ctx.filter = `brightness(${b}%) contrast(${c}%) saturate(${s}%)`;
-    ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = "high";
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
-    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-
-    if (Math.abs(gamma - 1) > 0.01) {
-      const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      const d = imgData.data;
-      const invGamma = 1 / gamma;
-      for (let i = 0; i < d.length; i += 4) {
-        d[i] = 255 * Math.pow(d[i] / 255, invGamma);
-        d[i + 1] = 255 * Math.pow(d[i + 1] / 255, invGamma);
-        d[i + 2] = 255 * Math.pow(d[i + 2] / 255, invGamma);
+      if (Math.abs(gamma - 1) > 0.01) {
+        const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const d = imgData.data;
+        const invGamma = 1 / gamma;
+        for (let i = 0; i < d.length; i += 4) {
+          d[i] = 255 * Math.pow(d[i] / 255, invGamma);
+          d[i + 1] = 255 * Math.pow(d[i + 1] / 255, invGamma);
+          d[i + 2] = 255 * Math.pow(d[i + 2] / 255, invGamma);
+        }
+        ctx.putImageData(imgData, 0, 0);
       }
-      ctx.putImageData(imgData, 0, 0);
-    }
 
-    return canvas.toDataURL("image/png", 1);
-  };
+      return canvas.toDataURL("image/png", 1);
+    };
 
-  // ✅ Dynamically calculate based on actual image sizes (Front & Back)
-  const frontWidth = dims.Front?.width ;
-  const frontHeight = dims.Front?.height;
-  const backWidth = dims.Back?.width ;
-  const backHeight = dims.Back?.height;
+    // ✅ Dynamically calculate based on actual image sizes (Front & Back)
+    const frontWidth = dims.Front?.width;
+    const frontHeight = dims.Front?.height;
+    const backWidth = dims.Back?.width;
+    const backHeight = dims.Back?.height;
 
-  let scaleFactor;
-  if (layout === "lr") {
-    const totalWidth = frontWidth + backWidth;
-    scaleFactor = (pdfWidth - 3 * m) / totalWidth;
-  } else if(layout === "tb") {
-    const totalHeight = frontHeight + backHeight;
-    scaleFactor = (pdfHeight - 3 * m) / totalHeight;
-  }else {
-    const totalHeight = frontHeight + backHeight;
-    scaleFactor = (pdfHeight - 3 * m) / totalHeight;
-  }
-
-  // ✅ Render Front
-  if (outputs.Front) {
-    const imgData = await renderHighResImage(
-      outputs.Front,
-      frontWidth,
-      frontHeight,
-      previewAdjust.Front.filters
-    );
-    pdf.addImage(imgData, "PNG", m, m, frontWidth * scaleFactor, frontHeight * scaleFactor);
-  }
-
-  // ✅ Render Back
-  if (outputs.Back) {
-    const imgData = await renderHighResImage(
-      outputs.Back,
-      backWidth,
-      backHeight,
-      previewAdjust.Back.filters
-    );
+    let scaleFactor;
     if (layout === "lr") {
-      pdf.addImage(
-        imgData,
-        "PNG",
-        m + frontWidth * scaleFactor + m,
-        m,
-        backWidth * scaleFactor,
-        backHeight * scaleFactor
-      );
+      const totalWidth = frontWidth + backWidth;
+      scaleFactor = (pdfWidth - 3 * m) / totalWidth;
+    } else if (layout === "tb") {
+      const totalHeight = frontHeight + backHeight;
+      scaleFactor = (pdfHeight - 3 * m) / totalHeight;
     } else {
+      const totalHeight = frontHeight + backHeight;
+      scaleFactor = (pdfHeight - 3 * m) / totalHeight;
+    }
+
+    // ✅ Render Front
+    if (outputs.Front) {
+      const imgData = await renderHighResImage(
+        outputs.Front,
+        frontWidth,
+        frontHeight,
+        previewAdjust.Front.filters
+      );
       pdf.addImage(
         imgData,
         "PNG",
         m,
-        m + frontHeight * scaleFactor + m,
-        backWidth * scaleFactor,
-        backHeight * scaleFactor
+        m,
+        frontWidth * scaleFactor,
+        frontHeight * scaleFactor
       );
     }
-  }
 
-  // ✅ Render Photo inside Front dynamically
-  if (outputs.Photo) {
-    const imgData = await renderHighResImage(
-      outputs.Photo,
-      dims.Photo.width,
-      dims.Photo.height,
-      previewAdjust.Photo.filters
-    );
-    pdf.addImage(
-      imgData,
-      "PNG",
-      m + previewAdjust.Photo.x * scaleFactor,
-      m + previewAdjust.Photo.y * scaleFactor,
-      dims.Photo.width * scaleFactor,
-      dims.Photo.height * scaleFactor
-    );
-  }
+    // ✅ Render Back
+    if (outputs.Back) {
+      const imgData = await renderHighResImage(
+        outputs.Back,
+        backWidth,
+        backHeight,
+        previewAdjust.Back.filters
+      );
+      if (layout === "lr") {
+        pdf.addImage(
+          imgData,
+          "PNG",
+          m + frontWidth * scaleFactor + m,
+          m,
+          backWidth * scaleFactor,
+          backHeight * scaleFactor
+        );
+      } else {
+        pdf.addImage(
+          imgData,
+          "PNG",
+          m,
+          m + frontHeight * scaleFactor + m,
+          backWidth * scaleFactor,
+          backHeight * scaleFactor
+        );
+      }
+    }
 
-  pdf.save("dynamic-high-res-id-card.pdf");
-}, [outputs, layout, dims, previewAdjust]);
+    // ✅ Render Photo inside Front dynamically
+    if (outputs.Photo) {
+      const imgData = await renderHighResImage(
+        outputs.Photo,
+        dims.Photo.width,
+        dims.Photo.height,
+        previewAdjust.Photo.filters
+      );
+      pdf.addImage(
+        imgData,
+        "PNG",
+        m + previewAdjust.Photo.x * scaleFactor,
+        m + previewAdjust.Photo.y * scaleFactor,
+        dims.Photo.width * scaleFactor,
+        dims.Photo.height * scaleFactor
+      );
+    }
 
+    pdf.save("dynamic-high-res-id-card.pdf");
+  }, [outputs, layout, dims, previewAdjust]);
 
   // --- wallet & role ---
   const token = localStorage.getItem("token");
@@ -512,6 +520,8 @@ const downloadPDF = useCallback(async () => {
   };
   const containerWidth = 300; // maxWidth or parent width in px
   const scaleFactor = containerWidth / dims.Back.width;
+  const selectedPhotoWidth = isCustom ? customWidth : dims.Photo.width;
+  const selectedPhotoHeight = isCustom ? customHeight : dims.Photo.height;
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900">
@@ -648,7 +658,7 @@ const downloadPDF = useCallback(async () => {
                       }
                     }}
                     minZoom={1}
-  maxZoom={10}
+                    maxZoom={10}
                     key={`${area}-${selectedType}-${isCustom}`}
                   />
                 )}
@@ -703,8 +713,10 @@ const downloadPDF = useCallback(async () => {
                       alt="Photo"
                       className="absolute object-contain"
                       style={{
-                        width: `${dims.Photo.width * scaleFactor}px`,
-                        height: `${dims.Photo.height * scaleFactor}px`,
+                    width: `${photoWidth}px`,
+height: `${photoHeight}px`,
+
+
                         left: `${previewAdjust.Photo.x * scaleFactor}px`,
                         top: `${previewAdjust.Photo.y * scaleFactor}px`,
                         filter: `brightness(${
@@ -805,7 +817,7 @@ const downloadPDF = useCallback(async () => {
             <label className="block text-xs mb-1">Select Card Type</label>
             <select
               value={selectedType}
-              onChange={(e) => setSelectedType(e.target.value)}
+              onChange={(e) => {setSelectedType(e.target.value);}}
               className="w-full border rounded px-3 py-2 text-sm"
             >
               {Object.keys(CARD_PRESETS).map((k) => (
@@ -830,6 +842,7 @@ const downloadPDF = useCallback(async () => {
                   onChange={(e) => {
                     const value = parseFloat(e.target.value) || 0;
                     setCustomWidth(value);
+                     setPhotoWidth(value);
 
                     if (cropperRef.current) {
                       const widthPx = (value * dpi) / 25.4;
@@ -851,6 +864,7 @@ const downloadPDF = useCallback(async () => {
                   onChange={(e) => {
                     const value = parseFloat(e.target.value) || 0;
                     setCustomHeight(value);
+                     setPhotoHeight(value);
 
                     if (cropperRef.current) {
                       const widthPx = (customWidth * dpi) / 25.4;
