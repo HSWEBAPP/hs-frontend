@@ -5,7 +5,8 @@ import React, {
   useRef,
   useState,
 } from "react";
-import Cropper from "react-easy-crop";
+import { Cropper, RectangleStencil } from "react-advanced-cropper";
+import "react-advanced-cropper/dist/style.css";
 import { jsPDF } from "jspdf";
 import * as pdfjsLib from "pdfjs-dist";
 import { useWallet } from "../../contexts/WalletContext";
@@ -18,9 +19,9 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
 
 const CARD_PRESETS = {
   "Govt ID 1": {
-    Photo: { width: 94, height: 94 },
-    Front: { width: 323, height: 204 },
-    Back: { width: 323, height: 204 },
+    Photo: { width: 414, height: 531 },
+    Front: { width: 986, height: 627 },
+    Back: { width: 986, height: 627 },
   },
   "Govt ID 2": {
     Photo: { width: 94, height: 94 },
@@ -31,8 +32,8 @@ const CARD_PRESETS = {
 
 const OUTPUT_SIZES = {
   Photo: { width: 94, height: 94 },
-  Front: { width: 323, height: 204 },
-  Back: { width: 323, height: 204 },
+  Front: { width: 986, height: 627 },
+  Back: { width: 986, height: 627 },
 };
 
 function clamp(n, min, max) {
@@ -66,41 +67,20 @@ async function pdfFirstPageToDataURL(file, scale = 1, password) {
   return canvas.toDataURL("image/png", 1);
 }
 
-async function getCroppedDataURL(imageSrc, cropPixels, outSize, filters) {
+async function applyGammaFilterToDataURL(src, gamma) {
+  if (!src) return null;
   const image = await new Promise((res, rej) => {
     const img = new Image();
     img.crossOrigin = "anonymous";
     img.onload = () => res(img);
     img.onerror = rej;
-    img.src = imageSrc;
+    img.src = src;
   });
-
   const canvas = document.createElement("canvas");
   const ctx = canvas.getContext("2d");
-  canvas.width = outSize.width;
-  canvas.height = outSize.height;
-
-  const b = clamp(100 + filters.brightness * 0.5, 0, 200);
-  const c = clamp(100 + filters.contrast * 0.5, 0, 200);
-  const s = clamp(100 + filters.saturation, 0, 200);
-  const gamma = clamp(1 + filters.shadows / 100, 0.1, 5);
-
-  ctx.filter = `brightness(${b}%) contrast(${c}%) saturate(${s}%)`;
-  ctx.imageSmoothingEnabled = true;
-  ctx.imageSmoothingQuality = "high";
-
-  ctx.drawImage(
-    image,
-    cropPixels.x,
-    cropPixels.y,
-    cropPixels.width,
-    cropPixels.height,
-    0,
-    0,
-    outSize.width,
-    outSize.height
-  );
-
+  canvas.width = image.width;
+  canvas.height = image.height;
+  ctx.drawImage(image, 0, 0);
   if (Math.abs(gamma - 1) > 0.01) {
     const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     const d = imgData.data;
@@ -112,7 +92,6 @@ async function getCroppedDataURL(imageSrc, cropPixels, outSize, filters) {
     }
     ctx.putImageData(imgData, 0, 0);
   }
-
   return canvas.toDataURL("image/png", 1);
 }
 
@@ -123,6 +102,7 @@ export default function IDCardEditor() {
   const [isCustom, setIsCustom] = useState(false);
   const [editingEnabled, setEditingEnabled] = useState(false);
   const [photoUploaded, setPhotoUploaded] = useState(false);
+
   const [previewAdjust, setPreviewAdjust] = useState({
     Photo: {
       x: 0,
@@ -140,19 +120,20 @@ export default function IDCardEditor() {
       filters: { brightness: 0, contrast: 0, saturation: 0, shadows: 0 },
     },
   });
+
   const [dims, setDims] = useState({
     Photo: CARD_PRESETS["Govt ID 1"].Photo,
     Front: CARD_PRESETS["Govt ID 1"].Front,
     Back: CARD_PRESETS["Govt ID 1"].Back,
   });
+
   const [outputs, setOutputs] = useState({
     Photo: null,
     Front: null,
     Back: null,
   });
-  const [crop, setCrop] = useState({ x: 0, y: 0 });
+
   const [zoom, setZoom] = useState(1);
-  const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
   const [layout, setLayout] = useState("lr");
   const [showConfirmPopup, setShowConfirmPopup] = useState(false);
   const [showInsufficientPopup, setShowInsufficientPopup] = useState(false);
@@ -162,29 +143,42 @@ export default function IDCardEditor() {
   const [pdfPassword, setPdfPassword] = useState("");
   const [pendingPDF, setPendingPDF] = useState(null);
   const [loadingPDF, setLoadingPDF] = useState(false);
-
+  const [customWidth, setCustomWidth] = useState(50);
+  const [customHeight, setCustomHeight] = useState(50);
+  const cropperRef = useRef(null);
+  const dpi = 300;
   const fileInputRef = useRef(null);
-  const { balance, fetchBalance } = useWallet();
 
+  const { balance, fetchBalance } = useWallet();
   useEffect(() => {
     if (selectedType === "Custom") {
       setIsCustom(true);
       return;
     }
+
     setIsCustom(false);
     const preset = CARD_PRESETS[selectedType];
-    if (preset)
+    if (preset) {
       setDims({ Photo: preset.Photo, Front: preset.Front, Back: preset.Back });
-  }, [selectedType]);
+
+      // ✅ Reset cropper stencil coordinates to match preset
+      const widthPx = preset[area].width;
+      const heightPx = preset[area].height;
+
+      if (cropperRef.current) {
+        cropperRef.current.setCoordinates({
+          width: widthPx,
+          height: heightPx,
+          left: 0,
+          top: 0,
+        });
+      }
+    }
+  }, [selectedType, area]);
 
   const aspect = useMemo(
-    () => dims[area].width / dims[area].height,
-    [dims, area]
-  );
-
-  const onCropComplete = useCallback(
-    (_, areaPixels) => setCroppedAreaPixels(areaPixels),
-    []
+    () => (isCustom ? null : dims[area].width / dims[area].height),
+    [dims, area, isCustom]
   );
 
   const handleFile = async (file) => {
@@ -195,7 +189,6 @@ export default function IDCardEditor() {
     if (!isPDF) {
       const src = await readFileAsDataURL(file);
       setImageSrc(src);
-      setCrop({ x: 0, y: 0 });
       setZoom(1);
       setEditingEnabled(true);
       setPhotoUploaded(true);
@@ -207,7 +200,6 @@ export default function IDCardEditor() {
       setLoadingPDF(true);
       const src = await pdfFirstPageToDataURL(file); // no password
       setImageSrc(src);
-      setCrop({ x: 0, y: 0 });
       setZoom(1);
       setEditingEnabled(true);
       setPhotoUploaded(true);
@@ -235,7 +227,6 @@ export default function IDCardEditor() {
       setLoadingPDF(true);
       const src = await pdfFirstPageToDataURL(pendingPDF, 1, pdfPassword);
       setImageSrc(src);
-      setCrop({ x: 0, y: 0 });
       setZoom(1);
       setEditingEnabled(true);
       setPhotoUploaded(true);
@@ -259,174 +250,194 @@ export default function IDCardEditor() {
   };
 
   const doUpdate = useCallback(async () => {
-    if (!imageSrc || !croppedAreaPixels) return;
+    if (!imageSrc) return;
     const outSize = OUTPUT_SIZES[area];
-    const dataUrl = await getCroppedDataURL(
-      imageSrc,
-      croppedAreaPixels,
-      outSize,
-      previewAdjust[area].filters
-    );
-    setOutputs((o) => ({ ...o, [area]: dataUrl }));
-  }, [imageSrc, croppedAreaPixels, area, previewAdjust]);
 
-  const downloadPDF = useCallback(async () => {
-    const pdf = new jsPDF({
-      orientation: "portrait",
-      unit: "px",
-      format: "a4",
+    // Export from cropper at exact output size
+    const canvas = cropperRef.current?.getCanvas({
+      width: dims[area].width,
+      height: dims[area].height,
+      fillColor: "transparent",
     });
 
-    const m = 24;
-    const pdfWidth = pdf.internal.pageSize.getWidth();
-    const pdfHeight = pdf.internal.pageSize.getHeight();
+    if (!canvas) {
+      toast.error("Make a crop selection first.");
+      return;
+    }
 
-    const renderHighResImage = async (src, width, height, filters) => {
-      const img = new Image();
-      img.src = src;
-      await new Promise((resolve) => (img.onload = resolve));
+    // Apply only gamma (shadows) in pixels here; CSS filters are preview-only
+    const gamma = clamp(1 + previewAdjust[area].filters.shadows / 100, 0.1, 5);
+    let dataUrl = canvas.toDataURL("image/png", 1);
+    if (Math.abs(gamma - 1) > 0.01) {
+      dataUrl = await applyGammaFilterToDataURL(dataUrl, gamma);
+    }
 
-      const scale = 4; // higher for quality
-      const canvas = document.createElement("canvas");
-      canvas.width = width * scale;
-      canvas.height = height * scale;
-      const ctx = canvas.getContext("2d");
+    setOutputs((o) => ({ ...o, [area]: dataUrl }));
+  }, [imageSrc, area, previewAdjust]);
 
-      const b = clamp(100 + filters.brightness * 0.5, 0, 200);
-      const c = clamp(100 + filters.contrast * 0.5, 0, 200);
-      const s = clamp(100 + filters.saturation, 0, 200);
-      const gamma = clamp(1 + filters.shadows / 50, 0.1, 5);
+const downloadPDF = useCallback(async () => {
+  const pdf = new jsPDF({
+    orientation: "portrait",
+    unit: "px",
+    format:  [dims.Photo.width, dims.Photo.height],
+  });
 
-      ctx.filter = `brightness(${b}%) contrast(${c}%) saturate(${s}%)`;
-      ctx.imageSmoothingEnabled = true;
-      ctx.imageSmoothingQuality = "high";
+  const m = 24;
+  const pdfWidth = pdf.internal.pageSize.getWidth();
+  const pdfHeight = pdf.internal.pageSize.getHeight();
 
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+  const renderHighResImage = async (src, width, height, filters) => {
+    const img = new Image();
+    img.src = src;
+    await new Promise((resolve) => (img.onload = resolve));
 
-      if (Math.abs(gamma - 1) > 0.01) {
-        const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const d = imgData.data;
-        const invGamma = 1 / gamma;
-        for (let i = 0; i < d.length; i += 4) {
-          d[i] = 255 * Math.pow(d[i] / 255, invGamma);
-          d[i + 1] = 255 * Math.pow(d[i + 1] / 255, invGamma);
-          d[i + 2] = 255 * Math.pow(d[i + 2] / 255, invGamma);
-        }
-        ctx.putImageData(imgData, 0, 0);
+    const scale = 4; // Higher for quality
+    const canvas = document.createElement("canvas");
+    canvas.width = width * scale;
+    canvas.height = height * scale;
+    const ctx = canvas.getContext("2d");
+
+    const b = clamp(100 + filters.brightness * 0.5, 0, 200);
+    const c = clamp(100 + filters.contrast * 0.5, 0, 200);
+    const s = clamp(100 + filters.saturation, 0, 200);
+    const gamma = clamp(1 + filters.shadows / 50, 0.1, 5);
+
+    ctx.filter = `brightness(${b}%) contrast(${c}%) saturate(${s}%)`;
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
+
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+    if (Math.abs(gamma - 1) > 0.01) {
+      const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const d = imgData.data;
+      const invGamma = 1 / gamma;
+      for (let i = 0; i < d.length; i += 4) {
+        d[i] = 255 * Math.pow(d[i] / 255, invGamma);
+        d[i + 1] = 255 * Math.pow(d[i + 1] / 255, invGamma);
+        d[i + 2] = 255 * Math.pow(d[i + 2] / 255, invGamma);
       }
+      ctx.putImageData(imgData, 0, 0);
+    }
 
-      return canvas.toDataURL("image/png", 1);
-    };
+    return canvas.toDataURL("image/png", 1);
+  };
 
-    // Calculate scale for layout
-    let scaleFactor;
+  // ✅ Dynamically calculate based on actual image sizes (Front & Back)
+  const frontWidth = dims.Front?.width ;
+  const frontHeight = dims.Front?.height;
+  const backWidth = dims.Back?.width ;
+  const backHeight = dims.Back?.height;
+
+  let scaleFactor;
+  if (layout === "lr") {
+    const totalWidth = frontWidth + backWidth;
+    scaleFactor = (pdfWidth - 3 * m) / totalWidth;
+  } else if(layout === "tb") {
+    const totalHeight = frontHeight + backHeight;
+    scaleFactor = (pdfHeight - 3 * m) / totalHeight;
+  }else {
+    const totalHeight = frontHeight + backHeight;
+    scaleFactor = (pdfHeight - 3 * m) / totalHeight;
+  }
+
+  // ✅ Render Front
+  if (outputs.Front) {
+    const imgData = await renderHighResImage(
+      outputs.Front,
+      frontWidth,
+      frontHeight,
+      previewAdjust.Front.filters
+    );
+    pdf.addImage(imgData, "PNG", m, m, frontWidth * scaleFactor, frontHeight * scaleFactor);
+  }
+
+  // ✅ Render Back
+  if (outputs.Back) {
+    const imgData = await renderHighResImage(
+      outputs.Back,
+      backWidth,
+      backHeight,
+      previewAdjust.Back.filters
+    );
     if (layout === "lr") {
-      const totalWidth = dims.Front.width + dims.Back.width;
-      scaleFactor = (pdfWidth - 3 * m) / totalWidth;
+      pdf.addImage(
+        imgData,
+        "PNG",
+        m + frontWidth * scaleFactor + m,
+        m,
+        backWidth * scaleFactor,
+        backHeight * scaleFactor
+      );
     } else {
-      const totalHeight = dims.Front.height + dims.Back.height;
-      scaleFactor = (pdfHeight - 3 * m) / totalHeight;
-    }
-
-    // Front
-    if (outputs.Front) {
-      const imgData = await renderHighResImage(
-        outputs.Front,
-        dims.Front.width,
-        dims.Front.height,
-        previewAdjust.Front.filters
-      );
       pdf.addImage(
         imgData,
         "PNG",
         m,
-        m,
-        dims.Front.width * scaleFactor,
-        dims.Front.height * scaleFactor
+        m + frontHeight * scaleFactor + m,
+        backWidth * scaleFactor,
+        backHeight * scaleFactor
       );
     }
+  }
 
-    // Back
-    if (outputs.Back) {
-      const imgData = await renderHighResImage(
-        outputs.Back,
-        dims.Back.width,
-        dims.Back.height,
-        previewAdjust.Back.filters
-      );
-      if (layout === "lr") {
-        pdf.addImage(
-          imgData,
-          "PNG",
-          m + dims.Front.width * scaleFactor + m,
-          m,
-          dims.Back.width * scaleFactor,
-          dims.Back.height * scaleFactor
-        );
-      } else {
-        pdf.addImage(
-          imgData,
-          "PNG",
-          m,
-          m + dims.Front.height * scaleFactor + m,
-          dims.Back.width * scaleFactor,
-          dims.Back.height * scaleFactor
-        );
-      }
-    }
+  // ✅ Render Photo inside Front dynamically
+  if (outputs.Photo) {
+    const imgData = await renderHighResImage(
+      outputs.Photo,
+      dims.Photo.width,
+      dims.Photo.height,
+      previewAdjust.Photo.filters
+    );
+    pdf.addImage(
+      imgData,
+      "PNG",
+      m + previewAdjust.Photo.x * scaleFactor,
+      m + previewAdjust.Photo.y * scaleFactor,
+      dims.Photo.width * scaleFactor,
+      dims.Photo.height * scaleFactor
+    );
+  }
 
-    // Photo (optional small position inside Front)
-    if (outputs.Photo) {
-      const imgData = await renderHighResImage(
-        outputs.Photo,
-        dims.Photo.width,
-        dims.Photo.height,
-        previewAdjust.Photo.filters
-      );
-      pdf.addImage(
-        imgData,
-        "PNG",
-        m + previewAdjust.Photo.x * scaleFactor,
-        m + previewAdjust.Photo.y * scaleFactor,
-        dims.Photo.width * scaleFactor,
-        dims.Photo.height * scaleFactor
-      );
-    }
+  pdf.save("dynamic-high-res-id-card.pdf");
+}, [outputs, layout, dims, previewAdjust]);
 
-    pdf.save("high-resolution-id-card.pdf");
-  }, [outputs, layout, dims, previewAdjust]);
- const token = localStorage.getItem("token");
+
+  // --- wallet & role ---
+  const token = localStorage.getItem("token");
   let role = null;
   if (token) {
-    const decoded = jwtDecode(token);
-    role = decoded.role;
+    try {
+      const decoded = jwtDecode(token);
+      role = decoded.role;
+    } catch {}
   }
-  console.log(role, 8989);
   const [isDownloading, setIsDownloading] = useState(false);
-  // Old style logic (kept as requested)
-const handleDownload = () => {
-  const cost = 10;
 
-  // ✅ If admin, skip wallet balance check
-  if (role === "admin") {
-    setShowConfirmPopup(true);
-    return;
-  }
+  const handleDownload = () => {
+    const cost = 10;
 
-  // ✅ For normal users, check balance
-  if (balance >= cost) {
-    setShowConfirmPopup(true);
-  } else {
-    setShowInsufficientPopup(true);
-  }
-};
+    // ✅ If admin, skip wallet balance check
+    if (role === "admin") {
+      setShowConfirmPopup(true);
+      return;
+    }
+
+    // ✅ For normal users, check balance
+    if (balance >= cost) {
+      setShowConfirmPopup(true);
+    } else {
+      setShowInsufficientPopup(true);
+    }
+  };
+
   const confirmDownload = async () => {
     setIsDownloading(true);
     const cost = 10;
     const success = await deductWallet("ID Card");
     if (success) {
+      await downloadPDF();
       toast.success(`₹${cost} deducted from wallet`);
-      downloadPDF();
       setShowConfirmPopup(false);
       fetchBalance();
       setIsDownloading(false);
@@ -467,6 +478,41 @@ const handleDownload = () => {
     toast.success("Auto enhancement applied!");
   };
 
+  const onOpenFileClick = () => fileInputRef.current?.click();
+
+  const onFileInputChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    await handleFile(file);
+  };
+  const getAspectRatio = (option) => {
+    switch (option) {
+      case "Govt ID 1":
+        return 1.42; // Example: 85.6mm / 60.96mm (Credit Card size)
+      case "Govt ID 2":
+        return 1.59; // Example for another preset
+      default:
+        return undefined; // For custom
+    }
+  };
+
+  const fixedAspectRatio = getAspectRatio(selectedType);
+  console.log(cropperRef, 65678);
+
+  const handleZoomChange = (e) => {
+    const newZoom = Number(e.target.value);
+    if (!cropperRef.current) return;
+
+    // Calculate relative scale ratio
+    const scaleRatio = newZoom / zoom;
+
+    cropperRef.current.zoomImage(scaleRatio); // ✅ correct method
+
+    setZoom(newZoom);
+  };
+  const containerWidth = 300; // maxWidth or parent width in px
+  const scaleFactor = containerWidth / dims.Back.width;
+
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900">
       <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-6">
@@ -482,7 +528,6 @@ const handleDownload = () => {
                   setOutputs({ Photo: null, Front: null, Back: null });
                   setEditingEnabled(false);
                   setPhotoUploaded(false);
-                  setCroppedAreaPixels(null);
                   setPreviewAdjust({
                     Photo: {
                       x: 0,
@@ -515,7 +560,6 @@ const handleDownload = () => {
                       },
                     },
                   });
-                  setCrop({ x: 0, y: 0 });
                   setZoom(1);
                   if (fileInputRef.current) fileInputRef.current.value = "";
                 }}
@@ -524,6 +568,7 @@ const handleDownload = () => {
                 Clear
               </button>
             </div>
+
             {editingEnabled && (
               <div className="mt-4">
                 <div className="flex justify-between text-xs mb-1 text-gray-500">
@@ -532,22 +577,23 @@ const handleDownload = () => {
                 </div>
                 <input
                   type="range"
-                  min={1}
-                  max={3}
-                  step={0.01}
+                  min={0.5}
+                  max={10}
+                  step={0.1}
                   value={zoom}
-                  onChange={(e) => setZoom(Number(e.target.value))}
+                  onChange={handleZoomChange}
                   className="w-full accent-blue-600"
                 />
               </div>
             )}
+
             {!imageSrc ? (
               <div className="border-2 border-dashed rounded-xl p-8 text-center bg-gray-50">
                 <p className="text-sm mb-4 text-gray-500">
                   Open a PDF or Image to create ID Card
                 </p>
                 <button
-                  onClick={() => fileInputRef.current?.click()}
+                  onClick={onOpenFileClick}
                   className="px-6 py-2 rounded-lg !bg-blue-600 text-white font-medium hover:bg-blue-700"
                 >
                   Open a New File
@@ -557,13 +603,14 @@ const handleDownload = () => {
                   type="file"
                   accept="image/*,application/pdf"
                   className="hidden"
-                  onChange={async (e) =>
-                    e.target.files?.[0] && (await handleFile(e.target.files[0]))
-                  }
+                  onChange={onFileInputChange}
                 />
               </div>
             ) : (
-              <div className="relative aspect-[3/2] bg-gray-100 rounded-xl overflow-hidden">
+              <div
+                className="relative custom-wrapper bg-gray-100 rounded-xl overflow-hidden"
+                style={{ aspectRatio: dims[area].width / dims[area].height }}
+              >
                 {!editingEnabled ? (
                   <img
                     src={imageSrc}
@@ -572,15 +619,37 @@ const handleDownload = () => {
                   />
                 ) : (
                   <Cropper
-                    image={imageSrc}
-                    crop={crop}
-                    zoom={zoom}
-                     aspect={aspect} 
-                    onCropChange={setCrop}
-                    onZoomChange={setZoom}
-                    onCropComplete={onCropComplete}
-                    showGrid={false}
-                    restrictPosition={false}
+                    ref={cropperRef}
+                    src={imageSrc}
+                    className="w-full h-full"
+                    imageRestriction="none"
+                    stencilProps={{
+                      width: isCustom
+                        ? (customWidth * dpi) / 25.4
+                        : dims[area].width,
+                      height: isCustom
+                        ? (customHeight * dpi) / 25.4
+                        : dims[area].height,
+                      aspectRatio: isCustom
+                        ? undefined
+                        : dims[area].width / dims[area].height,
+                      movable: isCustom,
+                      resizable: isCustom,
+                    }}
+                    onChange={({ coordinates }) => {
+                      if (isCustom && coordinates) {
+                        // Convert px → mm for input
+                        const widthMM = (coordinates.width * 25.4) / dpi;
+                        const heightMM = (coordinates.height * 25.4) / dpi;
+
+                        // Update inputs immediately
+                        setCustomWidth(parseFloat(widthMM.toFixed(2)));
+                        setCustomHeight(parseFloat(heightMM.toFixed(2)));
+                      }
+                    }}
+                    minZoom={1}
+  maxZoom={10}
+                    key={`${area}-${selectedType}-${isCustom}`}
                   />
                 )}
               </div>
@@ -604,18 +673,20 @@ const handleDownload = () => {
                 <div className="text-xs text-gray-500 mb-1">Front</div>
                 <div
                   className="bg-gray-50 rounded-lg relative flex items-center justify-center overflow-hidden"
-                  style={{ width: dims.Front.width, height: dims.Front.height }}
+                  style={{
+                    width: "100%", // Fit container width
+                    aspectRatio: dims.Front.width / dims.Front.height, // maintain ratio
+                    maxWidth: "300px", // optional max width
+                  }}
                 >
                   {outputs.Front && (
                     <img
                       src={outputs.Front}
                       alt="Front"
+                      className="absolute w-full h-full object-contain"
                       style={{
-                        width: dims.Front.width,
-                        height: dims.Front.height,
-                        position: "absolute",
-                        left: previewAdjust.Front.x,
-                        top: previewAdjust.Front.y,
+                        left: previewAdjust.Front.x * scaleFactor,
+                        top: previewAdjust.Front.y * scaleFactor,
                         filter: `brightness(${
                           100 + previewAdjust.Front.filters.brightness
                         }%) contrast(${
@@ -630,12 +701,12 @@ const handleDownload = () => {
                     <img
                       src={outputs.Photo}
                       alt="Photo"
+                      className="absolute object-contain"
                       style={{
-                        width: dims.Photo.width,
-                        height: dims.Photo.height,
-                        position: "absolute",
-                        left: previewAdjust.Photo.x,
-                        top: previewAdjust.Photo.y,
+                        width: `${dims.Photo.width * scaleFactor}px`,
+                        height: `${dims.Photo.height * scaleFactor}px`,
+                        left: `${previewAdjust.Photo.x * scaleFactor}px`,
+                        top: `${previewAdjust.Photo.y * scaleFactor}px`,
                         filter: `brightness(${
                           100 + previewAdjust.Photo.filters.brightness
                         }%) contrast(${
@@ -654,18 +725,20 @@ const handleDownload = () => {
                 <div className="text-xs text-gray-500 mb-1">Back</div>
                 <div
                   className="bg-gray-50 rounded-lg relative flex items-center justify-center overflow-hidden"
-                  style={{ width: dims.Back.width, height: dims.Back.height }}
+                  style={{
+                    width: "100%", // responsive
+                    aspectRatio: dims.Back.width / dims.Back.height, // keep correct ratio
+                    maxWidth: "300px", // optional for sidebar
+                  }}
                 >
                   {outputs.Back && (
                     <img
                       src={outputs.Back}
                       alt="Back"
+                      className="absolute w-full h-full object-contain"
                       style={{
-                        width: dims.Back.width,
-                        height: dims.Back.height,
-                        position: "absolute",
-                        left: previewAdjust.Back.x,
-                        top: previewAdjust.Back.y,
+                        left: previewAdjust.Back.x * scaleFactor,
+                        top: previewAdjust.Back.y * scaleFactor,
                         filter: `brightness(${
                           100 + previewAdjust.Back.filters.brightness
                         }%) contrast(${
@@ -745,36 +818,71 @@ const handleDownload = () => {
           </div>
 
           {/* Dimension Inputs */}
+          {/* Dimension Inputs */}
           <div>
             <div className="font-medium text-sm mb-2">Dimensions</div>
-            <div className="grid grid-cols-2 gap-2">
-              <input
-                type="number"
-                value={dims[area].width}
-                disabled={!isCustom}
-                onChange={(e) =>
-                  setDims((prev) => ({
-                    ...prev,
-                    [area]: { ...prev[area], width: Number(e.target.value) },
-                  }))
-                }
-                className="border rounded px-2 py-1 text-xs"
-                placeholder="Width"
-              />
-              <input
-                type="number"
-                value={dims[area].height}
-                disabled={!isCustom}
-                onChange={(e) =>
-                  setDims((prev) => ({
-                    ...prev,
-                    [area]: { ...prev[area], height: Number(e.target.value) },
-                  }))
-                }
-                className="border rounded px-2 py-1 text-xs"
-                placeholder="Height"
-              />
-            </div>
+            {isCustom ? (
+              <div className="grid grid-cols-2 gap-2">
+                {/* Width Input */}
+                <input
+                  type="number"
+                  value={customWidth}
+                  onChange={(e) => {
+                    const value = parseFloat(e.target.value) || 0;
+                    setCustomWidth(value);
+
+                    if (cropperRef.current) {
+                      const widthPx = (value * dpi) / 25.4;
+                      const heightPx = (customHeight * dpi) / 25.4;
+                      cropperRef.current.setCoordinates({
+                        width: widthPx,
+                        height: heightPx,
+                      });
+                    }
+                  }}
+                  className="border rounded px-2 py-1 text-xs"
+                  placeholder="Width (mm)"
+                />
+
+                {/* Height Input */}
+                <input
+                  type="number"
+                  value={customHeight}
+                  onChange={(e) => {
+                    const value = parseFloat(e.target.value) || 0;
+                    setCustomHeight(value);
+
+                    if (cropperRef.current) {
+                      const widthPx = (customWidth * dpi) / 25.4;
+                      const heightPx = (value * dpi) / 25.4;
+                      cropperRef.current.setCoordinates({
+                        width: widthPx,
+                        height: heightPx,
+                      });
+                    }
+                  }}
+                  className="border rounded px-2 py-1 text-xs"
+                  placeholder="Height (mm)"
+                />
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-2">
+                <input
+                  type="number"
+                  value={dims[area].width}
+                  disabled
+                  className="border rounded px-2 py-1 text-xs"
+                  placeholder="Width"
+                />
+                <input
+                  type="number"
+                  value={dims[area].height}
+                  disabled
+                  className="border rounded px-2 py-1 text-xs"
+                  placeholder="Height"
+                />
+              </div>
+            )}
           </div>
 
           {/* Photo Position Sliders */}
@@ -878,6 +986,7 @@ const handleDownload = () => {
           </button>
         </aside>
       </div>
+
       {/* Modals and Loader */}
       {showConfirmPopup && (
         <div className="fixed inset-0 flex items-center justify-center bg-black/50">
