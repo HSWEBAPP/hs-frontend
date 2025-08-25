@@ -1,19 +1,19 @@
 @import "tailwindcss";
 :root {
-  font-family: 'Lato', sans-serif !important;
+  font-family: "Lato", sans-serif !important;
   line-height: 1.5;
   font-weight: 400;
-width: 100%;
+  width: 100%;
   color-scheme: light dark;
   color: rgba(255, 255, 255, 0.87);
   background-color: white;
-max-width: 100%;
+  max-width: 100%;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
-#root{
+#root {
   width: 100%;
   background-color: white;
 }
@@ -32,7 +32,7 @@ body {
   place-items: center;
   min-width: 320px;
   min-height: 100% !important;
-  font-family: 'Lato', sans-serif !important;
+  font-family: "Lato", sans-serif !important;
   background-color: white;
   /* overflow-y: hidden; */
 }
@@ -41,7 +41,7 @@ h1 {
   font-size: 3.2em;
   line-height: 1.1;
 }
-.custom-filter-sidebar div .react-datepicker-wrapper{
+.custom-filter-sidebar div .react-datepicker-wrapper {
   width: 100%;
 }
 button {
